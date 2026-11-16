@@ -14,6 +14,10 @@ pub enum Msg {
     Input(EventType),
     /// Both ways: latest clipboard text.
     Clipboard(String),
+    /// Server -> client right after accepting: proves the other side is a WinMac server.
+    Welcome { os: String },
+    /// Both ways every 2 s, so a dead connection is noticed within a few seconds.
+    Ping,
 }
 
 impl Msg {

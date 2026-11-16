@@ -202,6 +202,7 @@ pub fn start(cfg: &Config) -> Result<(), String> {
     let link = Arc::new(Link::default());
     let (out_tx, out_rx) = channel::<Msg>();
     net::spawn_writer(link.clone(), out_rx);
+    net::spawn_pinger(link.clone());
     let clip_in = clipboard::spawn(out_tx.clone());
 
     let core: SharedCore = Arc::new(Mutex::new(Core {
@@ -245,6 +246,9 @@ pub fn start(cfg: &Config) -> Result<(), String> {
                 c.conn_gen
             };
             link.set(Some(stream));
+            link.send(&Msg::Welcome {
+                os: std::env::consts::OS.to_string(),
+            });
             log!("[server] client connected: {peer}");
 
             let core = core.clone();

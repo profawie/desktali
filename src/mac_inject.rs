@@ -91,8 +91,9 @@ impl Injector {
             )
             .ok(),
         };
-        if let Some(e) = event {
-            e.post(CGEventTapLocation::HID);
+        match event {
+            Some(e) => e.post(CGEventTapLocation::HID),
+            None => log!("[mac] cannot create event for {ev:?}"),
         }
     }
 

@@ -319,6 +319,18 @@ fn platform_loop(cfg: Config) -> ! {
     // Menu bar only, no Dock icon.
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
+    // Opt out of App Nap: a menu bar app with no windows would otherwise be
+    // throttled and replay the remote mouse late or drop the connection.
+    {
+        use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
+        let token = NSProcessInfo::processInfo().beginActivityWithOptions_reason(
+            NSActivityOptions::UserInitiatedAllowingIdleSystemSleep
+                | NSActivityOptions::LatencyCritical,
+            &NSString::from_str("Sharing mouse and clipboard"),
+        );
+        std::mem::forget(token);
+    }
+
     PENDING.with(|p| *p.borrow_mut() = Some(cfg));
 
     let timer = CFRunLoopTimer::new(

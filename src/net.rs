@@ -6,6 +6,7 @@ use std::net::TcpStream;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
 /// The current connection (if any) to the other machine.
 #[derive(Default)]
@@ -48,11 +49,29 @@ pub fn spawn_writer(link: Arc<Link>, rx: Receiver<Msg>) {
     });
 }
 
-/// Read messages line by line until the connection closes.
+/// No message (not even a Ping) for this long means the connection is dead.
+pub const READ_TIMEOUT: Duration = Duration::from_secs(7);
+
+/// Send a Ping every 2 s on the current connection (if any).
+pub fn spawn_pinger(link: Arc<Link>) {
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(2));
+        link.send(&Msg::Ping);
+    });
+}
+
+/// Read messages line by line until the connection closes or goes silent.
 pub fn read_loop(stream: TcpStream, mut on_msg: impl FnMut(Msg)) {
+    let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
     let reader = BufReader::new(stream);
     for line in reader.lines() {
-        let Ok(line) = line else { break };
+        let line = match line {
+            Ok(l) => l,
+            Err(e) => {
+                log!("[net] connection lost: {e}");
+                break;
+            }
+        };
         if line.trim().is_empty() {
             continue;
         }

@@ -8,9 +8,52 @@ use crate::status::{self, State};
 use crate::{clipboard, screen_size};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::mpsc::channel;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// What the client is doing right now; turned into the tray status by `refresh_status`.
+#[derive(Clone, PartialEq)]
+enum Conn {
+    Connecting(String),
+    /// TCP connected, waiting for the server's Welcome.
+    Handshake(String),
+    Connected(String),
+    Failed(String),
+}
+
+static CONN: Mutex<Option<Conn>> = Mutex::new(None);
+
+fn set_conn(c: Conn) {
+    *CONN.lock().unwrap() = Some(c);
+    refresh_status();
+}
+
+/// Combine the connection state with the macOS permission check.
+fn refresh_status() {
+    let Some(conn) = CONN.lock().unwrap().clone() else { return };
+    #[cfg(target_os = "macos")]
+    let allowed = crate::mac_inject::accessibility_trusted(false);
+    #[cfg(not(target_os = "macos"))]
+    let allowed = true;
+
+    let (state, text) = match conn {
+        Conn::Connecting(t) | Conn::Handshake(t) => (State::Waiting, t),
+        Conn::Failed(t) => (State::Error, t),
+        Conn::Connected(t) => (State::Connected, t),
+    };
+    let (state, text) = if allowed {
+        (state, text)
+    } else {
+        (
+            State::Error,
+            format!("{text}. Accessibility permission missing: allow WinMac in System Settings > Privacy & Security > Accessibility"),
+        )
+    };
+    if status::get() != (state, text.clone()) {
+        status::set(state, text);
+    }
+}
 
 pub fn start(cfg: &Config) {
     if cfg.server_address.trim().is_empty() {
@@ -18,6 +61,18 @@ pub fn start(cfg: &Config) {
         return;
     }
     let addr = cfg.server_socket_addr();
+
+    #[cfg(target_os = "macos")]
+    {
+        // Show macOS's permission prompt once, then keep the status up to date
+        // (the permission can be granted while we run).
+        crate::mac_inject::accessibility_trusted(true);
+        thread::spawn(|| loop {
+            thread::sleep(Duration::from_secs(2));
+            refresh_status();
+        });
+    }
+
     thread::spawn(move || run(&addr));
 }
 
@@ -31,18 +86,10 @@ fn run(addr: &str) {
     };
     log!("[client] screen size {w}x{h}");
 
-    #[cfg(target_os = "macos")]
-    if !crate::mac_inject::accessibility_trusted(true) {
-        status::set(
-            State::Error,
-            "Allow Accessibility for winmac (System Settings > Privacy & Security), then restart",
-        );
-        // Keep going: the permission may be granted while we wait for the server.
-    }
-
     let link = Arc::new(Link::default());
     let (out_tx, out_rx) = channel::<Msg>();
     net::spawn_writer(link.clone(), out_rx);
+    net::spawn_pinger(link.clone());
     let clip_in = clipboard::spawn(out_tx.clone());
 
     #[cfg(target_os = "macos")]
@@ -53,9 +100,7 @@ fn run(addr: &str) {
     let sim = sim_rdev;
 
     loop {
-        if status::get().0 != State::Error {
-            status::set(State::Waiting, format!("Connecting to {addr}..."));
-        }
+        set_conn(Conn::Connecting(format!("Connecting to {addr}...")));
         match connect(addr) {
             Ok(stream) => {
                 let _ = stream.set_nodelay(true);
@@ -72,24 +117,46 @@ fn run(addr: &str) {
                     height: h,
                     os: std::env::consts::OS.to_string(),
                 });
-                status::set(State::Connected, format!("Connected to {addr}"));
+                log!("[client] TCP connected to {addr}, waiting for server");
+                set_conn(Conn::Handshake(format!("Connected to {addr}, waiting for server...")));
 
+                let mut welcomed = false;
+                let mut last_move = Instant::now() - Duration::from_secs(60);
                 net::read_loop(read_half, |msg| match msg {
-                    Msg::MoveTo { x, y } => sim(&rdev::EventType::MouseMove { x, y }),
+                    Msg::Welcome { os } => {
+                        welcomed = true;
+                        log!("[client] server is {os}");
+                        set_conn(Conn::Connected(format!("Connected to {addr} ({os})")));
+                    }
+                    Msg::MoveTo { x, y } => {
+                        if last_move.elapsed() > Duration::from_secs(1) {
+                            log!("[client] receiving mouse at {x:.0},{y:.0}");
+                        }
+                        last_move = Instant::now();
+                        sim(&rdev::EventType::MouseMove { x, y })
+                    }
                     Msg::Input(ev) => sim(&ev),
                     Msg::Clipboard(text) => {
                         let _ = clip_in.send(text);
                     }
-                    Msg::Hello { .. } => {}
+                    Msg::Hello { .. } | Msg::Ping => {}
                 });
-
                 link.set(None);
-                status::set(State::Waiting, format!("Disconnected from {addr}, retrying..."));
+
+                if welcomed {
+                    log!("[client] disconnected from {addr}");
+                } else {
+                    let msg = format!(
+                        "{addr} accepted the connection but is not a WinMac server (wrong IP? another app on this port?)"
+                    );
+                    log!("[client] {msg}");
+                    set_conn(Conn::Failed(msg));
+                    thread::sleep(Duration::from_secs(5));
+                }
             }
             Err(e) => {
-                if status::get().0 != State::Error {
-                    status::set(State::Waiting, format!("Cannot reach {addr} ({e}), retrying..."));
-                }
+                log!("[client] cannot reach {addr}: {e}");
+                set_conn(Conn::Connecting(format!("Cannot reach {addr} ({e}), retrying...")));
             }
         }
         thread::sleep(Duration::from_secs(2));
