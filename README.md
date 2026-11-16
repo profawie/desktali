@@ -27,7 +27,14 @@ cd win-mac-desktop
 * Windows (PowerShell): `.\build.ps1`
   (jika PowerShell menyekat skrip: `powershell -ExecutionPolicy Bypass -File .\build.ps1`)
 
-Kedua-dua skrip hanya menjalankan `cargo build --release` dan mencetak lokasi binari.
+Kedua-dua skrip menjalankan `cargo build --release` dan mencetak lokasi binari.
+
+Di Windows, `build.ps1` menggunakan toolchain Rust **GNU** (`stable-x86_64-pc-windows-gnu`) dan memasangnya sendiri kali pertama. Toolchain ini membawa linker MinGW sendiri, jadi **tidak perlu Visual Studio / Build Tools** (ralat `link.exe not found`). Untuk build manual:
+
+```powershell
+rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal
+cargo +stable-x86_64-pc-windows-gnu build --release
+```
 
 Hasil binari:
 

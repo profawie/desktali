@@ -12,13 +12,15 @@ jobs:
         include:
           - os: windows-latest
             bin: winmac.exe
+            toolchain: stable-x86_64-pc-windows-gnu
           - os: macos-latest
             bin: winmac
+            toolchain: stable
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --release
+      - run: rustup toolchain install ${{ matrix.toolchain }} --profile minimal
+      - run: cargo +${{ matrix.toolchain }} build --release
       - uses: actions/upload-artifact@v4
         with:
           name: winmac-${{ matrix.os }}
