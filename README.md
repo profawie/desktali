@@ -1,24 +1,24 @@
 # WinMac
 
-Satu program kecil dalam Rust untuk guna **satu mouse (dan keyboard)** pada dua komputer, Windows dan macOS, melalui rangkaian LAN/WiFi yang sama. Hanya dua fungsi:
+A small Rust app to use **one mouse (and keyboard)** across two computers, Windows and macOS, on the same LAN/Wi-Fi. It does two things:
 
-1. **Mouse menyeberang skrin.** Gerak mouse melepasi tepi skrin Windows, kursor muncul di MacBook. Gerak balik, ia kembali ke Windows. Klik, scroll dan keyboard ikut ke mesin yang sedang dikawal.
-2. **Clipboard dikongsi.** Copy teks di satu mesin, paste di mesin satu lagi (dua hala). Bila mengawal Mac dari keyboard Windows, `Ctrl+C` / `Ctrl+V` ditukar automatik menjadi `Cmd+C` / `Cmd+V`.
+1. **Move the mouse across screens.** Push the cursor past the edge of the Windows screen and it appears on the MacBook. Move it back and it returns to Windows. Clicks, scrolling and the keyboard follow whichever machine is being controlled.
+2. **Shared clipboard.** Copy text on one machine and paste it on the other (both directions). When controlling the Mac from the Windows keyboard, `Ctrl+C` / `Ctrl+V` are automatically turned into `Cmd+C` / `Cmd+V`.
 
-Program berjalan sebagai ikon di **system tray** (Windows, sebelah jam) dan **menu bar** (macOS). Warna ikon menunjukkan status:
+The app runs as an icon in the **system tray** (Windows, next to the clock) and the **menu bar** (macOS). The icon colour shows the status:
 
-* 🟢 hijau: bersambung
-* 🟠 oren: menunggu / cuba menyambung
-* 🔴 merah: perlu tindakan (kebenaran macOS, alamat server belum diset, port digunakan)
+* 🟢 green: connected
+* 🟠 amber: waiting / trying to connect
+* 🔴 red: needs attention (macOS permission, server address not set, port in use)
 
-Klik ikon untuk menu: status penuh, **Mode** (Server / Client), **Other screen is on the** (Left / Right / Top / Bottom), **Server address...**, buka fail config / log, Restart dan Quit. Menukar tetapan akan simpan config dan restart program secara automatik.
+Click the icon for the menu: full status, **Mode** (Server / Client), **Other screen is on the** (Left / Right / Top / Bottom), **Server address...**, open the config / log file, Restart and Quit. Changing a setting saves the config and restarts the app automatically.
 
-## Cara ia berfungsi
+## How it works
 
-* **Server**: mesin yang ada mouse fizikal (biasanya laptop Windows).
-* **Client**: mesin yang dikawal (biasanya MacBook).
+* **Server**: the machine with the physical mouse (usually the Windows laptop).
+* **Client**: the machine being controlled (usually the MacBook).
 
-Client menyambung ke server melalui TCP port `24800`. Server memasang hook input global; bila kursor sampai ke tepi skrin yang ditetapkan, semua input mouse/keyboard disekat secara tempatan dan dihantar ke client. Teks clipboard disemak setiap 0.4 saat di kedua-dua belah dan dihantar bila berubah.
+The client connects to the server over TCP port `24800`. The server installs a global input hook; when the cursor reaches the configured screen edge, all mouse/keyboard input is blocked locally and sent to the client. Clipboard text is checked every 0.4 seconds on both sides and sent when it changes.
 
 ## Build
 
@@ -28,21 +28,21 @@ cd win-mac-desktop
 ```
 
 * **Windows** (PowerShell): `.\build.ps1`
-  (jika PowerShell menyekat skrip: `powershell -ExecutionPolicy Bypass -File .\build.ps1`)
-  Hasil: `target\release\winmac.exe`
+  (if PowerShell blocks the script: `powershell -ExecutionPolicy Bypass -File .\build.ps1`)
+  Output: `target\release\winmac.exe`
 * **macOS**: `./build.sh`
-  Hasil: `target/release/WinMac.app` (app menu bar) dan `target/release/winmac` (CLI)
+  Output: `target/release/WinMac.app` (menu bar app) and `target/release/winmac` (CLI)
 
-Di Windows, `build.ps1` menggunakan toolchain Rust **GNU** (`stable-x86_64-pc-windows-gnu`) dan memasangnya sendiri kali pertama. Ia tidak perlukan Visual Studio, MinGW atau `dlltool`.
+On Windows, `build.ps1` uses the Rust **GNU** toolchain (`stable-x86_64-pc-windows-gnu`) and installs it on first run. It does not need Visual Studio, MinGW or `dlltool`.
 
-## Cara guna (mouse di Windows, MacBook di sebelah kanan)
+## Usage (mouse on Windows, MacBook on the right)
 
 ### 1. Windows (server)
 
-1. Double-click `target\release\winmac.exe`. Ikon muncul di system tray (mungkin tersembunyi di bawah anak panah `^`).
-2. Mode default di Windows ialah **Server**, skrin lain di sebelah **Right**. Tukar melalui menu jika perlu.
-3. Hover ikon: tooltip menunjukkan IP Windows, contoh `Waiting for client on 192.168.1.10:24800`.
-4. Kali pertama, Windows Firewall akan bertanya; benarkan untuk **Private networks**. Jika tidak muncul (PowerShell sebagai Administrator):
+1. Double-click `target\release\winmac.exe`. The icon appears in the system tray (it may be hidden under the `^` arrow).
+2. The default mode on Windows is **Server**, with the other screen on the **Right**. Change it from the menu if needed.
+3. Hover over the icon: the tooltip shows the Windows IP, e.g. `Waiting for client on 192.168.1.10:24800`.
+4. The first time, Windows Firewall will ask; allow it for **Private networks**. If it does not ask (PowerShell as Administrator):
 
    ```powershell
    New-NetFirewallRule -DisplayName "winmac" -Direction Inbound -Protocol TCP -LocalPort 24800 -Action Allow -Profile Private
@@ -50,24 +50,24 @@ Di Windows, `build.ps1` menggunakan toolchain Rust **GNU** (`stable-x86_64-pc-wi
 
 ### 2. MacBook (client)
 
-1. Buka `target/release/WinMac.app` (boleh salin ke `/Applications`). Ikon muncul di menu bar.
-2. Mode default di Mac ialah **Client**. Klik ikon → **Server address...** → masukkan IP Windows (contoh `192.168.1.10`).
-3. macOS akan minta kebenaran **Accessibility**: buka **System Settings → Privacy & Security → Accessibility**, hidupkan **WinMac**, kemudian klik ikon → **Restart**.
+1. Open `target/release/WinMac.app` (you can copy it to `/Applications`). The icon appears in the menu bar.
+2. The default mode on the Mac is **Client**. Click the icon → **Server address...** → enter the Windows IP (e.g. `192.168.1.10`).
+3. macOS will ask for **Accessibility** permission: open **System Settings → Privacy & Security → Accessibility**, turn on **WinMac**, then click the icon → **Restart**.
 
-Bila ikon kedua-dua mesin hijau, gerak mouse Windows melepasi tepi kanan skrin.
+When both icons are green, move the Windows mouse past the right edge of the screen.
 
-### Sebaliknya: mouse di Mac
+### The other way round: mouse on the Mac
 
-Di Mac pilih **Mode → Server** dan sisi skrin Windows. Di Windows pilih **Mode → Client** dan isi **Server address...** dengan IP Mac. Mac sebagai server perlu kebenaran **Accessibility** dan **Input Monitoring**.
+On the Mac choose **Mode → Server** and the side where the Windows screen is. On Windows choose **Mode → Client** and set **Server address...** to the Mac's IP. A Mac server needs both **Accessibility** and **Input Monitoring** permission.
 
-### Mula automatik semasa login
+### Start automatically at login
 
-* Windows: tekan `Win+R`, taip `shell:startup`, letak shortcut ke `winmac.exe` di folder itu.
-* macOS: **System Settings → General → Login Items** → `+` → pilih `WinMac.app`.
+* Windows: press `Win+R`, type `shell:startup`, and put a shortcut to `winmac.exe` in that folder.
+* macOS: **System Settings → General → Login Items** → `+` → choose `WinMac.app`.
 
-## Konfigurasi
+## Configuration
 
-Fail config (JSON), boleh dibuka dari menu **Open config file**:
+Config file (JSON), which you can open from the **Open config file** menu item:
 
 * Windows: `%APPDATA%\winmac\config.json`
 * macOS: `~/Library/Application Support/winmac/config.json`
@@ -82,11 +82,11 @@ Fail config (JSON), boleh dibuka dari menu **Open config file**:
 }
 ```
 
-Selepas edit fail secara manual, klik **Restart** dari menu. Log ada di `winmac.log` dalam folder yang sama (menu **Open log file**).
+After editing the file by hand, click **Restart** in the menu. The log is `winmac.log` in the same folder (menu **Open log file**).
 
-## CLI (tanpa tray)
+## CLI (no tray)
 
-Untuk debug, program juga boleh dijalankan dalam terminal; log dipaparkan terus:
+For debugging, the app can also run in a terminal, with the log printed directly:
 
 ```
 winmac server [--remote-side left|right|top|bottom] [--port 24800] [--no-swap-ctrl-cmd]
@@ -94,21 +94,21 @@ winmac client <server-ip>[:port]
 winmac --config-path
 ```
 
-Jalankan `winmac` tanpa argumen untuk mod tray. Mod CLI tidak membaca fail config.
+Run `winmac` with no arguments for tray mode. CLI mode does not read the config file.
 
-## Had (versi ini)
+## Limitations
 
-* Hanya **teks** dalam clipboard (bukan gambar atau fail).
-* Andaian satu monitor setiap mesin (monitor utama).
-* Tiada enkripsi: guna hanya dalam rangkaian rumah/pejabat yang dipercayai.
-* Semasa mengawal mesin sebelah dari Windows, kursor Windows diletak di tengah skrinnya.
+* Clipboard is **text** only (no images or files).
+* Assumes one monitor per machine (the main monitor).
+* No encryption: only use it on a home/office network you trust.
+* While controlling the other machine from Windows, the Windows cursor is parked in the middle of its screen.
 
-## Masalah biasa
+## Troubleshooting
 
-| Masalah | Penyelesaian |
+| Problem | Fix |
 | --- | --- |
-| Ikon oren, `Cannot reach ...` | Semak IP, kedua-dua mesin dalam rangkaian sama, firewall Windows membenarkan port 24800. |
-| Ikon merah di Mac | Benarkan Accessibility (dan Input Monitoring untuk server) untuk WinMac, kemudian **Restart**. Jika masih merah selepas build semula, buang WinMac dari senarai Accessibility dan tambah semula. |
-| `Cannot listen on port 24800` | WinMac sudah berjalan (semak tray), atau program lain guna port itu. |
-| Kursor tidak menyeberang | Pastikan sisi skrin betul dan ikon hijau di kedua-dua mesin. |
-| Windows: `link.exe not found` | Guna `.\build.ps1` (toolchain GNU), bukan `cargo build` biasa. |
+| Amber icon, `Cannot reach ...` | Check the IP, that both machines are on the same network, and that Windows Firewall allows port 24800. |
+| Red icon on the Mac | Allow Accessibility (and Input Monitoring for server mode) for WinMac, then **Restart**. If it stays red after a rebuild, remove WinMac from the Accessibility list and add it again. |
+| `Cannot listen on port 24800` | WinMac is already running (check the tray), or another program uses that port. |
+| Cursor does not cross over | Make sure the screen side is correct and both icons are green. |
+| Windows: `link.exe not found` | Use `.\build.ps1` (GNU toolchain), not plain `cargo build`. |
