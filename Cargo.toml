@@ -1,0 +1,19 @@
+[package]
+name = "winmac"
+version = "0.1.0"
+edition = "2021"
+description = "Kongsi satu mouse/keyboard dan clipboard antara Windows dan macOS melalui LAN"
+license = "MIT"
+
+[dependencies]
+rdev = { version = "0.5.3", features = ["serialize", "unstable_grab"] }
+arboard = { version = "3", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = { version = "0.23", features = ["highsierra"] }
+
+[profile.release]
+opt-level = 3
