@@ -12,14 +12,11 @@ jobs:
         include:
           - os: windows-latest
             bin: winmac.exe
-            toolchain: stable-x86_64-pc-windows-gnu
           - os: macos-latest
             bin: winmac
-            toolchain: stable
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install ${{ matrix.toolchain }} --profile minimal
       - name: Build (Windows, without MinGW on PATH, like a fresh laptop)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -29,11 +26,13 @@ jobs:
             if (Get-Command $t -ErrorAction SilentlyContinue) { Write-Host "warning: $t still on PATH: $((Get-Command $t).Source)" }
           }
           if (Get-Command dlltool -ErrorAction SilentlyContinue) { throw "dlltool still on PATH" }
-          cargo +${{ matrix.toolchain }} build --release
+          ./build.ps1
       - name: Build (macOS)
         if: runner.os != 'Windows'
-        run: cargo +${{ matrix.toolchain }} build --release
+        run: ./build.sh
       - uses: actions/upload-artifact@v4
         with:
           name: winmac-${{ matrix.os }}
-          path: target/release/${{ matrix.bin }}
+          path: |
+            target/release/${{ matrix.bin }}
+            target/release/WinMac.app

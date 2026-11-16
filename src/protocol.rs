@@ -1,18 +1,18 @@
-//! Mesej yang dihantar antara server dan client.
-//! Setiap mesej ialah satu baris JSON (dipisahkan dengan '\n').
+//! Messages exchanged between server and client.
+//! Each message is one line of JSON terminated by '\n'.
 
 use rdev::EventType;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Msg {
-    /// Client -> server sebaik sahaja bersambung: saiz skrin dan OS client.
+    /// Client -> server right after connecting: client screen size and OS.
     Hello { width: f64, height: f64, os: String },
-    /// Server -> client: letak kursor pada kedudukan mutlak ini.
+    /// Server -> client: put the cursor at this absolute position.
     MoveTo { x: f64, y: f64 },
-    /// Server -> client: butang mouse, scroll atau kekunci keyboard.
+    /// Server -> client: mouse button, scroll (in wheel notches) or key.
     Input(EventType),
-    /// Dua hala: teks clipboard terkini.
+    /// Both ways: latest clipboard text.
     Clipboard(String),
 }
 

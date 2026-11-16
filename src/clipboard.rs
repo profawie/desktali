@@ -1,8 +1,8 @@
-//! Penyegerakan clipboard (teks) dua hala.
+//! Two-way clipboard sync (text).
 //!
-//! Satu thread memiliki objek clipboard. Ia:
-//!  * menyemak clipboard tempatan setiap 400ms dan menghantar teks baharu ke mesin sebelah;
-//!  * menerima teks dari mesin sebelah (melalui channel) dan menulisnya ke clipboard tempatan.
+//! One thread owns the clipboard object. It:
+//!  * polls the local clipboard every 400 ms and sends new text to the other machine;
+//!  * receives text from the other machine (via a channel) and writes it locally.
 
 use crate::protocol::Msg;
 use arboard::Clipboard;
@@ -13,8 +13,8 @@ use std::time::Duration;
 const POLL: Duration = Duration::from_millis(400);
 const MAX_LEN: usize = 8 * 1024 * 1024;
 
-/// Mulakan thread clipboard. `out` ialah channel ke penulis rangkaian.
-/// Pulangkan Sender untuk teks yang diterima dari mesin sebelah.
+/// Start the clipboard thread. `out` is the channel to the network writer.
+/// Returns a Sender for text received from the other machine.
 pub fn spawn(out: Sender<Msg>) -> Sender<String> {
     let (in_tx, in_rx) = channel::<String>();
     thread::spawn(move || {
@@ -22,12 +22,12 @@ pub fn spawn(out: Sender<Msg>) -> Sender<String> {
             match Clipboard::new() {
                 Ok(c) => break c,
                 Err(e) => {
-                    eprintln!("[clipboard] gagal buka clipboard: {e}; cuba lagi...");
+                    log!("[clipboard] cannot open clipboard: {e}; retrying...");
                     thread::sleep(Duration::from_secs(2));
                 }
             }
         };
-        // Jangan hantar apa yang sudah ada dalam clipboard semasa program bermula.
+        // Do not send whatever is already in the clipboard at startup.
         let mut last: Option<String> = cb.get_text().ok();
 
         loop {
@@ -35,10 +35,8 @@ pub fn spawn(out: Sender<Msg>) -> Sender<String> {
                 Ok(text) => {
                     if last.as_deref() != Some(text.as_str()) {
                         match cb.set_text(text.clone()) {
-                            Ok(()) => {
-                                println!("[clipboard] diterima {} aksara", text.chars().count())
-                            }
-                            Err(e) => eprintln!("[clipboard] gagal tulis: {e}"),
+                            Ok(()) => log!("[clipboard] received {} chars", text.chars().count()),
+                            Err(e) => log!("[clipboard] write failed: {e}"),
                         }
                         last = Some(text);
                     }
@@ -50,7 +48,7 @@ pub fn spawn(out: Sender<Msg>) -> Sender<String> {
                             && last.as_deref() != Some(text.as_str())
                         {
                             last = Some(text.clone());
-                            println!("[clipboard] dihantar {} aksara", text.chars().count());
+                            log!("[clipboard] sent {} chars", text.chars().count());
                             let _ = out.send(Msg::Clipboard(text));
                         }
                     }

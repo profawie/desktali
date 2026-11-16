@@ -1,37 +1,52 @@
+// No console window when started as a tray app on Windows. In CLI mode we attach to
+// the parent terminal's console instead (see `attach_console`).
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
+#[macro_use]
+mod log;
 mod client;
 mod clipboard;
+mod config;
+#[cfg(target_os = "macos")]
+mod mac_capture;
 #[cfg(target_os = "macos")]
 mod mac_inject;
+#[cfg(target_os = "macos")]
+mod mac_keys;
 mod net;
 mod protocol;
 mod server;
+mod status;
+mod tray;
+#[cfg(not(target_os = "macos"))]
+mod win_capture;
+
+use config::{Config, Mode, Side};
 
 pub const DEFAULT_PORT: u16 = 24800;
 
-const USAGE: &str = "winmac - kongsi satu mouse/keyboard dan clipboard antara Windows dan macOS
+const USAGE: &str = "winmac - share one mouse/keyboard and the clipboard between Windows and macOS
 
-Guna:
-  winmac server [--remote-side left|right|top|bottom] [--listen 0.0.0.0:24800] [--no-swap-ctrl-cmd]
-      Jalankan pada mesin yang ada mouse fizikal.
-      --remote-side       di sebelah mana skrin mesin satu lagi (default: right)
-      --listen            alamat untuk listen (default: 0.0.0.0:24800)
-      --no-swap-ctrl-cmd  jangan tukar Ctrl <-> Cmd/Win antara OS berbeza
+Usage:
+  winmac
+      Start as a system tray / menu bar app using the saved configuration.
 
-  winmac client <IP-server>[:port]
-      Jalankan pada mesin yang dikawal, contoh: winmac client 192.168.1.10
+  winmac server [--remote-side left|right|top|bottom] [--port 24800] [--no-swap-ctrl-cmd]
+      Run in the terminal on the machine that has the physical mouse.
+      --remote-side       where the other machine's screen is (default: right)
+      --port              TCP port to listen on (default: 24800)
+      --no-swap-ctrl-cmd  do not swap Ctrl <-> Cmd/Win between different OSes
+
+  winmac client <server-ip>[:port]
+      Run in the terminal on the controlled machine, e.g. winmac client 192.168.1.10
+
+  winmac --config-path
+      Print the location of the configuration file.
 ";
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum Side {
-    Left,
-    Right,
-    Top,
-    Bottom,
-}
 
 fn usage_exit(err: &str) -> ! {
     if !err.is_empty() {
-        eprintln!("Ralat: {err}\n");
+        eprintln!("Error: {err}\n");
     }
     eprint!("{USAGE}");
     std::process::exit(if err.is_empty() { 0 } else { 2 });
@@ -42,14 +57,19 @@ fn main() {
     make_dpi_aware();
 
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let Some(cmd) = args.first() else { usage_exit("") };
+    let Some(cmd) = args.first() else {
+        log::init_file();
+        tray::run();
+    };
+    attach_console();
     let rest = &args[1..];
 
     match cmd.as_str() {
         "server" => {
-            let mut side = Side::Right;
-            let mut listen = format!("0.0.0.0:{DEFAULT_PORT}");
-            let mut swap = true;
+            let mut cfg = Config {
+                mode: Mode::Server,
+                ..Config::default()
+            };
             let mut it = rest.iter();
             while let Some(a) = it.next() {
                 let (key, inline) = match a.split_once('=') {
@@ -60,63 +80,101 @@ fn main() {
                     inline
                         .clone()
                         .or_else(|| it.next().cloned())
-                        .unwrap_or_else(|| usage_exit(&format!("{key} perlukan nilai")))
+                        .unwrap_or_else(|| usage_exit(&format!("{key} needs a value")))
                 };
                 match key {
                     "--remote-side" => {
-                        side = match value().to_lowercase().as_str() {
-                            "left" => Side::Left,
-                            "right" => Side::Right,
-                            "top" => Side::Top,
-                            "bottom" => Side::Bottom,
-                            v => usage_exit(&format!("--remote-side tidak sah: {v}")),
-                        }
+                        let v = value();
+                        cfg.remote_side = Side::parse(&v)
+                            .unwrap_or_else(|| usage_exit(&format!("invalid --remote-side: {v}")))
                     }
-                    "--listen" => listen = value(),
-                    "--no-swap-ctrl-cmd" => swap = false,
+                    "--port" => {
+                        let v = value();
+                        cfg.port = v
+                            .parse()
+                            .unwrap_or_else(|_| usage_exit(&format!("invalid --port: {v}")))
+                    }
+                    "--no-swap-ctrl-cmd" => cfg.swap_ctrl_cmd = false,
                     "-h" | "--help" => usage_exit(""),
-                    other => usage_exit(&format!("pilihan tidak dikenali: {other}")),
+                    other => usage_exit(&format!("unknown option: {other}")),
                 }
             }
-            server::run(&listen, side, swap)
+            run_cli(cfg)
         }
         "client" => {
             let server = match rest {
                 [s] if !s.starts_with('-') => s.clone(),
-                _ => usage_exit("client perlukan satu IP server"),
+                _ => usage_exit("client needs exactly one server address"),
             };
-            let addr = if server.contains(':') {
-                server
-            } else {
-                format!("{server}:{DEFAULT_PORT}")
-            };
-            client::run(&addr)
+            run_cli(Config {
+                mode: Mode::Client,
+                server_address: server,
+                ..Config::default()
+            })
         }
+        "--config-path" => println!("{}", config::path().display()),
         "-h" | "--help" | "help" => usage_exit(""),
         "-V" | "--version" => println!("winmac {}", env!("CARGO_PKG_VERSION")),
-        other => usage_exit(&format!("arahan tidak dikenali: {other}")),
+        other => usage_exit(&format!("unknown command: {other}")),
     }
 }
 
-/// Pada Windows dengan display scaling (125%/150%), tanpa ini koordinat hook mouse
-/// dan saiz skrin boleh berbeza unit. Jadikan proses DPI-aware supaya semuanya piksel fizikal.
-#[cfg(windows)]
-fn make_dpi_aware() {
-    #[link(name = "user32")]
-    extern "system" {
-        fn SetProcessDPIAware() -> i32;
+/// Run in the terminal (no tray) until killed.
+fn run_cli(cfg: Config) {
+    if let Err(e) = start_engine(&cfg) {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
     }
-    unsafe {
-        SetProcessDPIAware();
+    // On macOS the input tap lives on the main run loop.
+    #[cfg(target_os = "macos")]
+    core_foundation::runloop::CFRunLoop::run_current();
+    loop {
+        std::thread::park();
     }
 }
 
-pub fn screen_size() -> (f64, f64) {
-    match rdev::display_size() {
-        Ok((w, h)) => (w as f64, h as f64),
-        Err(e) => {
-            eprintln!("Gagal dapatkan saiz skrin: {e:?}");
-            std::process::exit(1);
+/// Start server or client in background threads according to the configuration.
+pub fn start_engine(cfg: &Config) -> Result<(), String> {
+    match cfg.mode {
+        Mode::Server => server::start(cfg),
+        Mode::Client => {
+            client::start(cfg);
+            Ok(())
         }
     }
+}
+
+#[cfg(windows)]
+fn attach_console() {
+    use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+    }
+    // Start output on a fresh line after the shell prompt.
+    println!();
+}
+
+#[cfg(not(windows))]
+fn attach_console() {}
+
+/// With display scaling (125%/150%) on Windows, hook coordinates and screen size can
+/// otherwise be in different units. Make the process DPI aware so all are physical pixels.
+#[cfg(windows)]
+fn make_dpi_aware() {
+    unsafe {
+        winapi::um::winuser::SetProcessDPIAware();
+    }
+}
+
+pub fn screen_size() -> Result<(f64, f64), String> {
+    rdev::display_size()
+        .map(|(w, h)| (w as f64, h as f64))
+        .map_err(|e| format!("cannot read screen size: {e:?}"))
+}
+
+/// Best-effort LAN IP address of this machine (no packets are sent).
+pub fn local_ip() -> Option<String> {
+    let s = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    s.connect("8.8.8.8:80").ok()?;
+    Some(s.local_addr().ok()?.ip().to_string())
 }

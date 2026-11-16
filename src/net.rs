@@ -1,4 +1,4 @@
-//! Sambungan TCP yang dikongsi antara thread.
+//! TCP connection shared between threads.
 
 use crate::protocol::Msg;
 use std::io::{BufRead, BufReader, Write};
@@ -7,7 +7,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-/// Sambungan semasa (jika ada) ke mesin sebelah.
+/// The current connection (if any) to the other machine.
 #[derive(Default)]
 pub struct Link {
     stream: Mutex<Option<TcpStream>>,
@@ -22,7 +22,7 @@ impl Link {
         *g = s;
     }
 
-    /// Hantar satu mesej. Pulangkan false jika tiada sambungan / gagal.
+    /// Send one message. Returns false when not connected or the write failed.
     pub fn send(&self, msg: &Msg) -> bool {
         let mut g = self.stream.lock().unwrap();
         let ok = match g.as_mut() {
@@ -38,8 +38,8 @@ impl Link {
     }
 }
 
-/// Thread yang menghantar semua mesej dari channel ke sambungan semasa.
-/// (Callback hook input tidak boleh menunggu rangkaian, jadi ia hanya tolak ke channel.)
+/// Thread that sends every message from the channel to the current connection.
+/// (Input hook callbacks must never wait on the network, so they only push to the channel.)
 pub fn spawn_writer(link: Arc<Link>, rx: Receiver<Msg>) {
     thread::spawn(move || {
         for msg in rx {
@@ -48,7 +48,7 @@ pub fn spawn_writer(link: Arc<Link>, rx: Receiver<Msg>) {
     });
 }
 
-/// Baca mesej baris demi baris sehingga sambungan putus.
+/// Read messages line by line until the connection closes.
 pub fn read_loop(stream: TcpStream, mut on_msg: impl FnMut(Msg)) {
     let reader = BufReader::new(stream);
     for line in reader.lines() {
@@ -58,7 +58,7 @@ pub fn read_loop(stream: TcpStream, mut on_msg: impl FnMut(Msg)) {
         }
         match Msg::decode(&line) {
             Some(m) => on_msg(m),
-            None => eprintln!("[net] mesej tidak sah diabaikan"),
+            None => log!("[net] ignored invalid message"),
         }
     }
 }
