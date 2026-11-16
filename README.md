@@ -21,8 +21,13 @@ Perlu Rust (stable) di kedua-dua mesin.
 ```sh
 git clone https://github.com/profawie/win-mac-desktop.git
 cd win-mac-desktop
-cargo build --release
 ```
+
+* macOS: `./build.sh`
+* Windows (PowerShell): `.\build.ps1`
+  (jika PowerShell menyekat skrip: `powershell -ExecutionPolicy Bypass -File .\build.ps1`)
+
+Kedua-dua skrip hanya menjalankan `cargo build --release` dan mencetak lokasi binari.
 
 Hasil binari:
 
