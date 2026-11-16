@@ -1,0 +1,33 @@
+//! Messages exchanged between server and client.
+//! Each message is one line of JSON terminated by '\n'.
+
+use rdev::EventType;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Msg {
+    /// Client -> server right after connecting: client screen size and OS.
+    Hello { width: f64, height: f64, os: String },
+    /// Server -> client: put the cursor at this absolute position.
+    MoveTo { x: f64, y: f64 },
+    /// Server -> client: mouse button, scroll (in wheel notches) or key.
+    Input(EventType),
+    /// Both ways: latest clipboard text.
+    Clipboard(String),
+    /// Server -> client right after accepting: proves the other side is a WinMac server.
+    Welcome { os: String },
+    /// Both ways every 2 s, so a dead connection is noticed within a few seconds.
+    Ping,
+}
+
+impl Msg {
+    pub fn encode(&self) -> Vec<u8> {
+        let mut v = serde_json::to_vec(self).expect("serialize msg");
+        v.push(b'\n');
+        v
+    }
+
+    pub fn decode(line: &str) -> Option<Msg> {
+        serde_json::from_str(line).ok()
+    }
+}

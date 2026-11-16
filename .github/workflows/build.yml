@@ -1,0 +1,38 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            bin: winmac.exe
+          - os: macos-latest
+            bin: winmac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build (Windows, without MinGW on PATH, like a fresh laptop)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch '(?i)mingw|strawberry|msys|\\Git\\usr|\\Git\\bin|llvm' }) -join ';'
+          foreach ($t in 'dlltool', 'gcc', 'link') {
+            if (Get-Command $t -ErrorAction SilentlyContinue) { Write-Host "warning: $t still on PATH: $((Get-Command $t).Source)" }
+          }
+          if (Get-Command dlltool -ErrorAction SilentlyContinue) { throw "dlltool still on PATH" }
+          ./build.ps1
+      - name: Build (macOS)
+        if: runner.os != 'Windows'
+        run: ./build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winmac-${{ matrix.os }}
+          path: |
+            target/release/${{ matrix.bin }}
+            target/release/WinMac.app
