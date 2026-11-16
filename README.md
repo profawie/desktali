@@ -125,4 +125,6 @@ winmac client <IP-server>[:port]
 | Client `gagal sambung` | Semak IP, kedua-dua mesin dalam rangkaian sama, firewall Windows membenarkan port 24800. |
 | Kursor tidak bergerak di Mac | Beri kebenaran Accessibility kepada Terminal, kemudian buka semula Terminal. |
 | Server Mac: `gagal pasang hook input` | Beri kebenaran Accessibility **dan** Input Monitoring. |
+| Windows: `link.exe not found` | Guna `.\build.ps1` (toolchain GNU), bukan `cargo build` biasa. |
+| Windows: `dlltool.exe: program not found` | Jalankan `git pull` (versi baharu tidak perlukan dlltool), kemudian `cargo clean` dan `.\build.ps1` semula. Jika masih berlaku: `winget install BrechtSanders.WinLibs.POSIX.UCRT`, buka semula PowerShell. |
 | Kursor tidak menyeberang | Pastikan `--remote-side` betul, dan client sudah bersambung (server cetak `client macos, skrin ...`). |

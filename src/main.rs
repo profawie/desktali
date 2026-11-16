@@ -6,43 +6,22 @@ mod net;
 mod protocol;
 mod server;
 
-use clap::{Parser, Subcommand, ValueEnum};
-
 pub const DEFAULT_PORT: u16 = 24800;
 
-#[derive(Parser)]
-#[command(
-    name = "winmac",
-    version,
-    about = "Kongsi satu mouse/keyboard dan clipboard antara Windows dan macOS melalui LAN"
-)]
-struct Cli {
-    #[command(subcommand)]
-    cmd: Cmd,
-}
+const USAGE: &str = "winmac - kongsi satu mouse/keyboard dan clipboard antara Windows dan macOS
 
-#[derive(Subcommand)]
-enum Cmd {
-    /// Jalankan pada mesin yang ada mouse fizikal.
-    Server {
-        /// Di sebelah mana skrin mesin satu lagi (relatif kepada skrin ini).
-        #[arg(long, value_enum, default_value_t = Side::Right)]
-        remote_side: Side,
-        /// Alamat untuk listen.
-        #[arg(long, default_value_t = format!("0.0.0.0:{DEFAULT_PORT}"))]
-        listen: String,
-        /// Jangan tukar Ctrl <-> Cmd/Win apabila OS kedua-dua mesin berbeza.
-        #[arg(long)]
-        no_swap_ctrl_cmd: bool,
-    },
-    /// Jalankan pada mesin yang dikawal (tiada mouse).
-    Client {
-        /// IP server, contoh 192.168.1.10 atau 192.168.1.10:24800
-        server: String,
-    },
-}
+Guna:
+  winmac server [--remote-side left|right|top|bottom] [--listen 0.0.0.0:24800] [--no-swap-ctrl-cmd]
+      Jalankan pada mesin yang ada mouse fizikal.
+      --remote-side       di sebelah mana skrin mesin satu lagi (default: right)
+      --listen            alamat untuk listen (default: 0.0.0.0:24800)
+      --no-swap-ctrl-cmd  jangan tukar Ctrl <-> Cmd/Win antara OS berbeza
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+  winmac client <IP-server>[:port]
+      Jalankan pada mesin yang dikawal, contoh: winmac client 192.168.1.10
+";
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Side {
     Left,
     Right,
@@ -50,18 +29,62 @@ pub enum Side {
     Bottom,
 }
 
+fn usage_exit(err: &str) -> ! {
+    if !err.is_empty() {
+        eprintln!("Ralat: {err}\n");
+    }
+    eprint!("{USAGE}");
+    std::process::exit(if err.is_empty() { 0 } else { 2 });
+}
+
 fn main() {
     #[cfg(windows)]
     make_dpi_aware();
 
-    let cli = Cli::parse();
-    match cli.cmd {
-        Cmd::Server {
-            remote_side,
-            listen,
-            no_swap_ctrl_cmd,
-        } => server::run(&listen, remote_side, !no_swap_ctrl_cmd),
-        Cmd::Client { server } => {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let Some(cmd) = args.first() else { usage_exit("") };
+    let rest = &args[1..];
+
+    match cmd.as_str() {
+        "server" => {
+            let mut side = Side::Right;
+            let mut listen = format!("0.0.0.0:{DEFAULT_PORT}");
+            let mut swap = true;
+            let mut it = rest.iter();
+            while let Some(a) = it.next() {
+                let (key, inline) = match a.split_once('=') {
+                    Some((k, v)) => (k, Some(v.to_string())),
+                    None => (a.as_str(), None),
+                };
+                let mut value = || {
+                    inline
+                        .clone()
+                        .or_else(|| it.next().cloned())
+                        .unwrap_or_else(|| usage_exit(&format!("{key} perlukan nilai")))
+                };
+                match key {
+                    "--remote-side" => {
+                        side = match value().to_lowercase().as_str() {
+                            "left" => Side::Left,
+                            "right" => Side::Right,
+                            "top" => Side::Top,
+                            "bottom" => Side::Bottom,
+                            v => usage_exit(&format!("--remote-side tidak sah: {v}")),
+                        }
+                    }
+                    "--listen" => listen = value(),
+                    "--no-swap-ctrl-cmd" => swap = false,
+                    "-h" | "--help" => usage_exit(""),
+                    other => usage_exit(&format!("pilihan tidak dikenali: {other}")),
+                }
+            }
+            server::run(&listen, side, swap)
+        }
+        "client" => {
+            let server = match rest {
+                [s] if !s.starts_with('-') => s.clone(),
+                _ => usage_exit("client perlukan satu IP server"),
+            };
             let addr = if server.contains(':') {
                 server
             } else {
@@ -69,6 +92,9 @@ fn main() {
             };
             client::run(&addr)
         }
+        "-h" | "--help" | "help" => usage_exit(""),
+        "-V" | "--version" => println!("winmac {}", env!("CARGO_PKG_VERSION")),
+        other => usage_exit(&format!("arahan tidak dikenali: {other}")),
     }
 }
 

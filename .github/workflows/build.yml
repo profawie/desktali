@@ -20,7 +20,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install ${{ matrix.toolchain }} --profile minimal
-      - run: cargo +${{ matrix.toolchain }} build --release
+      - name: Build (Windows, without MinGW on PATH, like a fresh laptop)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch '(?i)mingw|strawberry|msys|\\Git\\usr|\\Git\\bin|llvm' }) -join ';'
+          foreach ($t in 'dlltool', 'gcc', 'link') {
+            if (Get-Command $t -ErrorAction SilentlyContinue) { Write-Host "warning: $t still on PATH: $((Get-Command $t).Source)" }
+          }
+          if (Get-Command dlltool -ErrorAction SilentlyContinue) { throw "dlltool still on PATH" }
+          cargo +${{ matrix.toolchain }} build --release
+      - name: Build (macOS)
+        if: runner.os != 'Windows'
+        run: cargo +${{ matrix.toolchain }} build --release
       - uses: actions/upload-artifact@v4
         with:
           name: winmac-${{ matrix.os }}
