@@ -15,6 +15,7 @@ mod mac_inject;
 mod mac_keys;
 mod net;
 mod protocol;
+mod screen;
 mod server;
 mod status;
 mod tray;
@@ -161,15 +162,15 @@ fn attach_console() {}
 /// otherwise be in different units. Make the process DPI aware so all are physical pixels.
 #[cfg(windows)]
 fn make_dpi_aware() {
+    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+    use winapi::um::winuser::{SetProcessDPIAware, SetProcessDpiAwarenessContext};
     unsafe {
-        winapi::um::winuser::SetProcessDPIAware();
+        // Per-monitor aware: real pixels on every monitor, even with different scaling.
+        // (Windows 10 1703+; fall back to system-aware on older versions.)
+        if SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) == 0 {
+            SetProcessDPIAware();
+        }
     }
-}
-
-pub fn screen_size() -> Result<(f64, f64), String> {
-    rdev::display_size()
-        .map(|(w, h)| (w as f64, h as f64))
-        .map_err(|e| format!("cannot read screen size: {e:?}"))
 }
 
 /// Best-effort LAN IP address of this machine (no packets are sent).

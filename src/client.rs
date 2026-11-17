@@ -5,7 +5,8 @@ use crate::config::Config;
 use crate::net::{self, Link};
 use crate::protocol::Msg;
 use crate::status::{self, State};
-use crate::{clipboard, screen_size};
+use crate::clipboard;
+use crate::screen;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
@@ -77,14 +78,15 @@ pub fn start(cfg: &Config) {
 }
 
 fn run(addr: &str) {
-    let (w, h) = match screen_size() {
+    let desk = match screen::desktop() {
         Ok(s) => s,
         Err(e) => {
             status::set(State::Error, e);
             return;
         }
     };
-    log!("[client] screen size {w}x{h}");
+    let (w, h) = (desk.w, desk.h);
+    log!("[client] desktop {w}x{h} at ({}, {})", desk.x, desk.y);
 
     let link = Arc::new(Link::default());
     let (out_tx, out_rx) = channel::<Msg>();
@@ -97,7 +99,13 @@ fn run(addr: &str) {
     #[cfg(target_os = "macos")]
     let mut sim = move |ev: &rdev::EventType| inj.inject(ev);
     #[cfg(not(target_os = "macos"))]
-    let sim = sim_rdev;
+    let sim = |ev: &rdev::EventType| match *ev {
+        // Client coordinates start at the desktop's top-left corner, which on
+        // Windows can be negative (monitor left of / above the primary one).
+        #[cfg(windows)]
+        rdev::EventType::MouseMove { x, y } => screen::inject_move(x + desk.x, y + desk.y),
+        _ => sim_rdev(ev),
+    };
 
     loop {
         set_conn(Conn::Connecting(format!("Connecting to {addr}...")));
