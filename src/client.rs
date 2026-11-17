@@ -48,7 +48,7 @@ fn refresh_status() {
     } else {
         (
             State::Error,
-            format!("{text}. Accessibility permission missing: allow WinMac in System Settings > Privacy & Security > Accessibility"),
+            format!("{text}. Accessibility permission missing: allow rtetherfy in System Settings > Privacy & Security > Accessibility"),
         )
     };
     if status::get() != (state, text.clone()) {
@@ -155,7 +155,7 @@ fn run(addr: &str) {
                     log!("[client] disconnected from {addr}");
                 } else {
                     let msg = format!(
-                        "{addr} accepted the connection but is not a WinMac server (wrong IP? another app on this port?)"
+                        "{addr} accepted the connection but is not a rtetherfy server (wrong IP? another app on this port?)"
                     );
                     log!("[client] {msg}");
                     set_conn(Conn::Failed(msg));

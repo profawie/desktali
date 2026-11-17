@@ -1,5 +1,5 @@
 target/
 # Build outputs copied to the root by build.sh / build.ps1
-/winmac
-/winmac.exe
-/WinMac.app/
+/rtetherfy
+/rtetherfy.exe
+/rtetherfy.app/

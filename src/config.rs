@@ -1,6 +1,6 @@
 //! Configuration stored as JSON:
-//!  * Windows: %APPDATA%\winmac\config.json
-//!  * macOS:   ~/Library/Application Support/winmac/config.json
+//!  * Windows: %APPDATA%\rtetherfy\config.json
+//!  * macOS:   ~/Library/Application Support/rtetherfy/config.json
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -85,6 +85,7 @@ impl Config {
     }
 
     pub fn load() -> Config {
+        migrate_old_config();
         match std::fs::read_to_string(path()) {
             Ok(s) => serde_json::from_str(&s).unwrap_or_else(|e| {
                 log!("[config] invalid {}: {e}; using defaults", path().display());
@@ -106,13 +107,28 @@ impl Config {
 }
 
 pub fn dir() -> PathBuf {
+    base_dir().join("rtetherfy")
+}
+
+fn base_dir() -> PathBuf {
     #[cfg(windows)]
     let base = std::env::var_os("APPDATA").map(PathBuf::from);
     #[cfg(target_os = "macos")]
     let base = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"));
     #[cfg(not(any(windows, target_os = "macos")))]
     let base = std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config"));
-    base.unwrap_or_else(|| PathBuf::from(".")).join("winmac")
+    base.unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// The app used to be called "winmac": reuse its settings on first start.
+fn migrate_old_config() {
+    let old = base_dir().join("winmac").join("config.json");
+    if !path().exists() && old.exists() {
+        let _ = std::fs::create_dir_all(dir());
+        if std::fs::copy(&old, path()).is_ok() {
+            log!("[config] copied settings from {}", old.display());
+        }
+    }
 }
 
 pub fn path() -> PathBuf {

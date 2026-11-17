@@ -240,7 +240,7 @@ fn collect_files(paths: &[PathBuf]) -> Result<(Vec<FileEntry>, u64), String> {
 
 /// Folder where received files are stored. Older batches are removed.
 pub fn received_dir() -> PathBuf {
-    std::env::temp_dir().join("winmac-clipboard")
+    std::env::temp_dir().join("rtetherfy-clipboard")
 }
 
 /// Write received entries to a new folder; return the top-level items.
