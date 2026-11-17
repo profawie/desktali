@@ -23,6 +23,46 @@ pub enum Msg {
     Welcome { os: String },
     /// Both ways every 2 s, so a dead connection is noticed within a few seconds.
     Ping,
+    /// Both ways: ask the other computer for a folder listing or part of a file.
+    FsReq { id: u64, op: FsOp },
+    /// Both ways: answer to the FsReq with the same id.
+    FsResp { id: u64, result: Result<FsData, String> },
+}
+
+/// Remote file browsing request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FsOp {
+    /// List a folder. An empty path lists the starting points (drives, home folder...).
+    List { path: String },
+    /// Read up to `len` bytes of a file, starting at `offset`.
+    Read { path: String, offset: u64, len: u64 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FsData {
+    List(FsListing),
+    /// File bytes (base64) and the total file size. Empty data means end of file.
+    Chunk { data_b64: String, size: u64 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsListing {
+    /// The listed path in the other computer's own format ("" = starting points).
+    pub path: String,
+    /// Path to go "up" to; None when already at the starting points.
+    pub parent: Option<String>,
+    pub entries: Vec<FsItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FsItem {
+    pub name: String,
+    pub path: String,
+    pub dir: bool,
+    pub size: u64,
+    /// Last modified, seconds since 1970 (0 = unknown).
+    pub modified: u64,
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

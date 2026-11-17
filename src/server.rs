@@ -10,7 +10,7 @@ use crate::net::{self, Link};
 use crate::protocol::Msg;
 use crate::status::{self, State};
 use crate::screen::{self, Rect};
-use crate::{clipboard, local_ip};
+use crate::{clipboard, files, local_ip};
 use rdev::{EventType, Key};
 use std::net::TcpListener;
 use std::sync::mpsc::{channel, Sender};
@@ -213,6 +213,7 @@ pub fn start(cfg: &Config) -> Result<(), String> {
     let (out_tx, out_rx) = channel::<Msg>();
     net::spawn_writer(link.clone(), out_rx);
     net::spawn_pinger(link.clone());
+    files::attach(link.clone());
     let clip_in = clipboard::spawn(out_tx.clone());
 
     let core: SharedCore = Arc::new(Mutex::new(Core {
@@ -266,6 +267,7 @@ pub fn start(cfg: &Config) -> Result<(), String> {
             let link = link.clone();
             let clip_in = clip_in.clone();
             thread::spawn(move || {
+                let fs_link = link.clone();
                 net::read_loop(read_half, |msg| match msg {
                     Msg::Hello { width, height, os } => {
                         log!("[server] client {os}, screen {width}x{height}");
@@ -273,6 +275,7 @@ pub fn start(cfg: &Config) -> Result<(), String> {
                         if c.conn_gen == my_gen {
                             c.remote = Some((width, height));
                             c.remote_name = format!("{peer} ({os})");
+                            files::set_peer(Some((peer.clone(), os.clone())));
                             c.remote_os = os;
                             status::set(State::Connected, format!("Connected: {}", c.remote_name));
                         }
@@ -280,6 +283,8 @@ pub fn start(cfg: &Config) -> Result<(), String> {
                     m @ (Msg::Clipboard(_) | Msg::Image { .. } | Msg::Files(_)) => {
                         let _ = clip_in.send(m);
                     }
+                    Msg::FsReq { id, op } => files::on_request(id, op, fs_link.clone(), peer.clone()),
+                    Msg::FsResp { id, result } => files::on_reply(id, result),
                     _ => {}
                 });
                 let mut c = core.lock().unwrap();
@@ -291,6 +296,7 @@ pub fn start(cfg: &Config) -> Result<(), String> {
                         capture::release(c.center());
                     }
                     link.set(None);
+                    files::set_peer(None);
                     status::set(State::Waiting, waiting_text(port));
                 }
             });

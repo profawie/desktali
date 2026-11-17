@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::net::{self, Link};
 use crate::protocol::Msg;
 use crate::status::{self, State};
-use crate::clipboard;
+use crate::{clipboard, files};
 use crate::screen;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::mpsc::channel;
@@ -92,6 +92,7 @@ fn run(addr: &str) {
     let (out_tx, out_rx) = channel::<Msg>();
     net::spawn_writer(link.clone(), out_rx);
     net::spawn_pinger(link.clone());
+    files::attach(link.clone());
     let clip_in = clipboard::spawn(out_tx.clone());
 
     #[cfg(target_os = "macos")]
@@ -134,6 +135,7 @@ fn run(addr: &str) {
                     Msg::Welcome { os } => {
                         welcomed = true;
                         log!("[client] server is {os}");
+                        files::set_peer(Some((addr.to_string(), os.clone())));
                         set_conn(Conn::Connected(format!("Connected to {addr} ({os})")));
                     }
                     Msg::MoveTo { x, y } => {
@@ -147,9 +149,12 @@ fn run(addr: &str) {
                     m @ (Msg::Clipboard(_) | Msg::Image { .. } | Msg::Files(_)) => {
                         let _ = clip_in.send(m);
                     }
+                    Msg::FsReq { id, op } => files::on_request(id, op, link.clone(), addr.to_string()),
+                    Msg::FsResp { id, result } => files::on_reply(id, result),
                     Msg::Hello { .. } | Msg::Ping => {}
                 });
                 link.set(None);
+                files::set_peer(None);
 
                 if welcomed {
                     log!("[client] disconnected from {addr}");
