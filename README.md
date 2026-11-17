@@ -1,4 +1,4 @@
-# WinMac
+# rtetherfy
 
 A small Rust app to use **one mouse (and keyboard)** across two computers, Windows and macOS, on the same LAN/Wi-Fi. It does two things:
 
@@ -24,22 +24,22 @@ The client connects to the server over TCP port `24800`. The server installs a g
 
 * **Text**: sent as is.
 * **Images** (e.g. a screenshot, or "Copy image" in a browser): sent as PNG and placed on the other clipboard as an image, ready to paste into apps.
-* **Files and folders** (copied in Explorer / Finder): their contents are sent, saved on the other machine in a temporary folder (`%TEMP%\winmac-clipboard` on Windows, `$TMPDIR/winmac-clipboard` on macOS), and put on the clipboard as files. Paste them in Explorer / Finder (or into an app) as usual. Only the latest batch is kept; older received files are deleted when new ones arrive.
+* **Files and folders** (copied in Explorer / Finder): their contents are sent, saved on the other machine in a temporary folder (`%TEMP%\rtetherfy-clipboard` on Windows, `$TMPDIR/rtetherfy-clipboard` on macOS), and put on the clipboard as files. Paste them in Explorer / Finder (or into an app) as usual. Only the latest batch is kept; older received files are deleted when new ones arrive.
 * Files are sent only up to **100 MB** in total (and 2000 files). Larger copies are skipped and logged.
 * While a large image or file batch is being sent, the mouse on the other machine may pause briefly.
 
 ## Build
 
 ```sh
-git clone https://github.com/profawie/win-mac-desktop.git
-cd win-mac-desktop
+git clone https://github.com/profawie/rust-tetherfy.git
+cd rust-tetherfy
 ```
 
 * **Windows** (PowerShell): `.\build.ps1`
   (if PowerShell blocks the script: `powershell -ExecutionPolicy Bypass -File .\build.ps1`)
-  Output: `winmac.exe` in the repository root (also in `target\release\`)
+  Output: `rtetherfy.exe` in the repository root (also in `target\release\`)
 * **macOS**: `./build.sh`
-  Output: `WinMac.app` (menu bar app) and `winmac` (CLI) in the repository root (also in `target/release/`)
+  Output: `rtetherfy.app` (menu bar app) and `rtetherfy` (CLI) in the repository root (also in `target/release/`)
 
 On Windows, `build.ps1` uses the Rust **GNU** toolchain (`stable-x86_64-pc-windows-gnu`) and installs it on first run. It does not need Visual Studio, MinGW or `dlltool`.
 
@@ -47,20 +47,20 @@ On Windows, `build.ps1` uses the Rust **GNU** toolchain (`stable-x86_64-pc-windo
 
 ### 1. Windows (server)
 
-1. Double-click `winmac.exe` in the repository folder. The icon appears in the system tray (it may be hidden under the `^` arrow).
+1. Double-click `rtetherfy.exe` in the repository folder. The icon appears in the system tray (it may be hidden under the `^` arrow).
 2. The default mode on Windows is **Server**, with the other screen on the **Right**. Change it from the menu if needed.
 3. Hover over the icon: the tooltip shows the Windows IP, e.g. `Waiting for client on 192.168.1.10:24800`.
 4. The first time, Windows Firewall will ask; allow it for **Private networks**. If it does not ask (PowerShell as Administrator):
 
    ```powershell
-   New-NetFirewallRule -DisplayName "winmac" -Direction Inbound -Protocol TCP -LocalPort 24800 -Action Allow -Profile Private
+   New-NetFirewallRule -DisplayName "rtetherfy" -Direction Inbound -Protocol TCP -LocalPort 24800 -Action Allow -Profile Private
    ```
 
 ### 2. MacBook (client)
 
-1. Open `WinMac.app` in the repository folder (you can copy it to `/Applications`). The icon appears in the menu bar.
+1. Open `rtetherfy.app` in the repository folder (you can copy it to `/Applications`). The icon appears in the menu bar.
 2. The default mode on the Mac is **Client**. Click the icon → **Server address...** → enter the Windows IP (e.g. `192.168.1.10`).
-3. macOS will ask for **Accessibility** permission: open **System Settings → Privacy & Security → Accessibility**, turn on **WinMac**, then click the icon → **Restart**.
+3. macOS will ask for **Accessibility** permission: open **System Settings → Privacy & Security → Accessibility**, turn on **rtetherfy**, then click the icon → **Restart**.
 
 When both icons are green, move the Windows mouse past the right edge of the screen.
 
@@ -70,15 +70,19 @@ On the Mac choose **Mode → Server** and the side where the Windows screen is. 
 
 ### Start automatically at login
 
-* Windows: press `Win+R`, type `shell:startup`, and put a shortcut to `winmac.exe` in that folder.
-* macOS: **System Settings → General → Login Items** → `+` → choose `WinMac.app`.
+* Windows: press `Win+R`, type `shell:startup`, and put a shortcut to `rtetherfy.exe` in that folder.
+* macOS: **System Settings → General → Login Items** → `+` → choose `rtetherfy.app`.
+
+## Upgrading from "winmac"
+
+The app used to be called `winmac`. On first start, `rtetherfy` copies the old settings (`winmac/config.json`) to its new folder. Quit the old `winmac` app first, and delete the old `winmac.exe` / `WinMac.app` if you like. On macOS, allow **rtetherfy** again in Accessibility (and Input Monitoring for server mode); Windows Firewall may ask again too.
 
 ## Configuration
 
 Config file (JSON), which you can open from the **Open config file** menu item:
 
-* Windows: `%APPDATA%\winmac\config.json`
-* macOS: `~/Library/Application Support/winmac/config.json`
+* Windows: `%APPDATA%\rtetherfy\config.json`
+* macOS: `~/Library/Application Support/rtetherfy/config.json`
 
 ```json
 {
@@ -90,19 +94,19 @@ Config file (JSON), which you can open from the **Open config file** menu item:
 }
 ```
 
-After editing the file by hand, click **Restart** in the menu. The log is `winmac.log` in the same folder (menu **Open log file**).
+After editing the file by hand, click **Restart** in the menu. The log is `rtetherfy.log` in the same folder (menu **Open log file**).
 
 ## CLI (no tray)
 
 For debugging, the app can also run in a terminal, with the log printed directly:
 
 ```
-winmac server [--remote-side left|right|top|bottom] [--port 24800] [--no-swap-ctrl-cmd]
-winmac client <server-ip>[:port]
-winmac --config-path
+rtetherfy server [--remote-side left|right|top|bottom] [--port 24800] [--no-swap-ctrl-cmd]
+rtetherfy client <server-ip>[:port]
+rtetherfy --config-path
 ```
 
-Run `winmac` with no arguments for tray mode. CLI mode does not read the config file.
+Run `rtetherfy` with no arguments for tray mode. CLI mode does not read the config file.
 
 ## Limitations
 
@@ -116,7 +120,7 @@ Run `winmac` with no arguments for tray mode. CLI mode does not read the config 
 | Problem | Fix |
 | --- | --- |
 | Amber icon, `Cannot reach ...` | Check the IP, that both machines are on the same network, and that Windows Firewall allows port 24800. |
-| Red icon on the Mac | Allow Accessibility (and Input Monitoring for server mode) for WinMac, then **Restart**. If it stays red after a rebuild, remove WinMac from the Accessibility list and add it again. |
-| `Cannot listen on port 24800` | WinMac is already running (check the tray), or another program uses that port. |
+| Red icon on the Mac | Allow Accessibility (and Input Monitoring for server mode) for rtetherfy, then **Restart**. If it stays red after a rebuild, remove rtetherfy from the Accessibility list and add it again. |
+| `Cannot listen on port 24800` | rtetherfy is already running (check the tray), or another program uses that port. |
 | Cursor does not cross over | Make sure the screen side is correct and both icons are green. |
 | Windows: `link.exe not found` | Use `.\build.ps1` (GNU toolchain), not plain `cargo build`. |

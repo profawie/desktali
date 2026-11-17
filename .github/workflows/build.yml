@@ -11,9 +11,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            bin: winmac.exe
+            bin: rtetherfy.exe
           - os: macos-latest
-            bin: winmac
+            bin: rtetherfy
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
         run: ./build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: winmac-${{ matrix.os }}
+          name: rtetherfy-${{ matrix.os }}
           path: |
             target/release/${{ matrix.bin }}
-            target/release/WinMac.app
+            target/release/rtetherfy.app
