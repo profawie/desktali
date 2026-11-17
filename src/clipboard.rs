@@ -156,7 +156,7 @@ fn apply(cb: &mut Clipboard, msg: Msg, last_text: &mut Option<String>) {
         }
         Msg::Files(entries) => {
             match save_files(&entries).and_then(|top| {
-                cb.set().file_list(&top).map_err(|e| e.to_string())?;
+                set_file_list(cb, &top)?;
                 Ok(top)
             }) {
                 Ok(top) => log!(
@@ -287,6 +287,95 @@ fn save_files(entries: &[FileEntry]) -> Result<Vec<PathBuf>, String> {
         }
     }
     Ok(top)
+}
+
+/// Put files on the clipboard so they can be pasted in Explorer / Finder.
+#[cfg(not(windows))]
+fn set_file_list(cb: &mut Clipboard, paths: &[PathBuf]) -> Result<(), String> {
+    cb.set().file_list(paths).map_err(|e| e.to_string())
+}
+
+/// Windows: write CF_HDROP ourselves. arboard 3.6.1 does not empty the clipboard
+/// first, so Explorer could still see the old content. Also mark it as a copy
+/// ("Preferred DropEffect") so Explorer pastes instead of moving.
+#[cfg(windows)]
+fn set_file_list(_cb: &mut Clipboard, paths: &[PathBuf]) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use std::ptr::null_mut;
+    use winapi::um::winbase::{GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock, GMEM_MOVEABLE, GMEM_ZEROINIT};
+    use winapi::um::winuser::{
+        CloseClipboard, EmptyClipboard, OpenClipboard, RegisterClipboardFormatW, SetClipboardData,
+        CF_HDROP,
+    };
+
+    // DROPFILES header, then each path as UTF-16 + NUL, then a final NUL.
+    let mut wide: Vec<u16> = Vec::new();
+    for p in paths {
+        wide.extend(p.as_os_str().encode_wide());
+        wide.push(0);
+    }
+    wide.push(0);
+    // DROPFILES { pFiles: u32, pt: (i32, i32), fNC: i32, fWide: i32 } = 20 bytes.
+    const HEADER: usize = 20;
+
+    unsafe fn global_with(bytes: &[u8]) -> Result<*mut winapi::ctypes::c_void, String> {
+        let h = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, bytes.len());
+        if h.is_null() {
+            return Err("GlobalAlloc failed".into());
+        }
+        let p = GlobalLock(h) as *mut u8;
+        if p.is_null() {
+            GlobalFree(h);
+            return Err("GlobalLock failed".into());
+        }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
+        GlobalUnlock(h);
+        Ok(h)
+    }
+
+    let mut drop = Vec::with_capacity(HEADER + wide.len() * 2);
+    drop.extend_from_slice(&(HEADER as u32).to_le_bytes()); // pFiles
+    drop.extend_from_slice(&[0u8; 12]); // pt.x, pt.y, fNC
+    drop.extend_from_slice(&1u32.to_le_bytes()); // fWide
+    for w in &wide {
+        drop.extend_from_slice(&w.to_le_bytes());
+    }
+
+    unsafe {
+        let mut opened = false;
+        for _ in 0..10 {
+            if OpenClipboard(null_mut()) != 0 {
+                opened = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        if !opened {
+            return Err("cannot open the clipboard".into());
+        }
+        let result = (|| {
+            if EmptyClipboard() == 0 {
+                return Err("EmptyClipboard failed".to_string());
+            }
+            let h = global_with(&drop)?;
+            if SetClipboardData(CF_HDROP, h).is_null() {
+                GlobalFree(h);
+                return Err("SetClipboardData(CF_HDROP) failed".to_string());
+            }
+            let name: Vec<u16> = "Preferred DropEffect\0".encode_utf16().collect();
+            let fmt = RegisterClipboardFormatW(name.as_ptr());
+            if fmt != 0 {
+                // DROPEFFECT_COPY = 1
+                let h = global_with(&1u32.to_le_bytes())?;
+                if SetClipboardData(fmt, h).is_null() {
+                    GlobalFree(h);
+                }
+            }
+            Ok(())
+        })();
+        CloseClipboard();
+        result
+    }
 }
 
 /// The OS clipboard change counter, so content is only read after a real copy.
