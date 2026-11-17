@@ -14,10 +14,23 @@ pub enum Msg {
     Input(EventType),
     /// Both ways: latest clipboard text.
     Clipboard(String),
+    /// Both ways: clipboard image as base64 PNG.
+    Image { png_b64: String },
+    /// Both ways: copied files/folders. Paths are relative and '/'-separated;
+    /// entries without '/' are the top-level items that were copied.
+    Files(Vec<FileEntry>),
     /// Server -> client right after accepting: proves the other side is a WinMac server.
     Welcome { os: String },
     /// Both ways every 2 s, so a dead connection is noticed within a few seconds.
     Ping,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileEntry {
+    pub path: String,
+    pub dir: bool,
+    /// File contents, base64 (empty for folders).
+    pub data_b64: String,
 }
 
 impl Msg {

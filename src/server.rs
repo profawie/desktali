@@ -266,8 +266,8 @@ pub fn start(cfg: &Config) -> Result<(), String> {
                             status::set(State::Connected, format!("Connected: {}", c.remote_name));
                         }
                     }
-                    Msg::Clipboard(text) => {
-                        let _ = clip_in.send(text);
+                    m @ (Msg::Clipboard(_) | Msg::Image { .. } | Msg::Files(_)) => {
+                        let _ = clip_in.send(m);
                     }
                     _ => {}
                 });

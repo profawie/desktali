@@ -136,8 +136,8 @@ fn run(addr: &str) {
                         sim(&rdev::EventType::MouseMove { x, y })
                     }
                     Msg::Input(ev) => sim(&ev),
-                    Msg::Clipboard(text) => {
-                        let _ = clip_in.send(text);
+                    m @ (Msg::Clipboard(_) | Msg::Image { .. } | Msg::Files(_)) => {
+                        let _ = clip_in.send(m);
                     }
                     Msg::Hello { .. } | Msg::Ping => {}
                 });
