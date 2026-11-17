@@ -31,8 +31,8 @@ The client connects to the server over TCP port `24800`. The server installs a g
 ## Build
 
 ```sh
-git clone https://github.com/profawie/rust-tetherfy.git
-cd rust-tetherfy
+git clone https://github.com/profawie/rtetherfy.git
+cd rtetherfy
 ```
 
 * **Windows** (PowerShell): `.\build.ps1`
@@ -72,10 +72,6 @@ On the Mac choose **Mode → Server** and the side where the Windows screen is. 
 
 * Windows: press `Win+R`, type `shell:startup`, and put a shortcut to `rtetherfy.exe` in that folder.
 * macOS: **System Settings → General → Login Items** → `+` → choose `rtetherfy.app`.
-
-## Upgrading from "winmac"
-
-The app used to be called `winmac`. On first start, `rtetherfy` copies the old settings (`winmac/config.json`) to its new folder. Quit the old `winmac` app first, and delete the old `winmac.exe` / `WinMac.app` if you like. On macOS, allow **rtetherfy** again in Accessibility (and Input Monitoring for server mode); Windows Firewall may ask again too.
 
 ## Configuration
 
