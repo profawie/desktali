@@ -9,7 +9,8 @@ use crate::config::{Config, Side};
 use crate::net::{self, Link};
 use crate::protocol::Msg;
 use crate::status::{self, State};
-use crate::{clipboard, local_ip, screen_size};
+use crate::screen::{self, Rect};
+use crate::{clipboard, local_ip};
 use rdev::{EventType, Key};
 use std::net::TcpListener;
 use std::sync::mpsc::{channel, Sender};
@@ -29,7 +30,10 @@ const RETURN_MARGIN: f64 = 6.0;
 const MAC_PIXELS_PER_NOTCH: i64 = 10;
 
 pub struct Core {
-    pub local: (f64, f64),
+    /// Bounding box of all local monitors.
+    pub desk: Rect,
+    /// Monitor where control crossed to the client (control returns there).
+    entry: Rect,
     side: Side,
     swap_ctrl_cmd: bool,
     /// Client screen size, when a client is connected.
@@ -55,18 +59,21 @@ impl Core {
     /// Returns true when control moved to the client.
     pub fn try_enter(&mut self, x: f64, y: f64) -> bool {
         let Some((rw, rh)) = self.remote else { return false };
-        let (w, h) = self.local;
+        let d = self.desk;
+        // Outer edge of the whole desktop (all monitors), not of the primary monitor.
         let hit = match self.side {
-            Side::Right => x >= w - EDGE,
-            Side::Left => x <= EDGE - 1.0,
-            Side::Bottom => y >= h - EDGE,
-            Side::Top => y <= EDGE - 1.0,
+            Side::Right => x >= d.right() - EDGE,
+            Side::Left => x <= d.x + EDGE - 1.0,
+            Side::Bottom => y >= d.bottom() - EDGE,
+            Side::Top => y <= d.y + EDGE - 1.0,
         };
         if !hit {
             return false;
         }
-        let fy = (y / h).clamp(0.0, 1.0);
-        let fx = (x / w).clamp(0.0, 1.0);
+        let m = screen::monitor_at(x, y);
+        self.entry = m;
+        let fy = ((y - m.y) / m.h).clamp(0.0, 1.0);
+        let fx = ((x - m.x) / m.w).clamp(0.0, 1.0);
         let (rx, ry) = match self.side {
             Side::Right => (1.0, fy * rh),
             Side::Left => (rw - 2.0, fy * rh),
@@ -88,7 +95,7 @@ impl Core {
             self.active = false;
             return Some(self.center());
         };
-        let (w, h) = self.local;
+        let m = self.entry;
         self.rx += dx;
         self.ry += dy;
         let leave = match self.side {
@@ -103,10 +110,10 @@ impl Core {
             self.active = false;
             log!("[server] control -> local");
             return Some(match self.side {
-                Side::Right => (w - RETURN_MARGIN, fy * h),
-                Side::Left => (RETURN_MARGIN, fy * h),
-                Side::Bottom => (fx * w, h - RETURN_MARGIN),
-                Side::Top => (fx * w, RETURN_MARGIN),
+                Side::Right => (m.right() - RETURN_MARGIN, m.y + fy * m.h),
+                Side::Left => (m.x + RETURN_MARGIN, m.y + fy * m.h),
+                Side::Bottom => (m.x + fx * m.w, m.bottom() - RETURN_MARGIN),
+                Side::Top => (m.x + fx * m.w, m.y + RETURN_MARGIN),
             });
         }
         self.rx = self.rx.clamp(0.0, rw - 1.0);
@@ -145,8 +152,9 @@ impl Core {
         let _ = self.out.send(Msg::Input(ev));
     }
 
+    /// Where the local cursor is parked while controlling the client.
     pub fn center(&self) -> (f64, f64) {
-        ((self.local.0 / 2.0).floor(), (self.local.1 / 2.0).floor())
+        self.entry.center()
     }
 }
 
@@ -172,12 +180,14 @@ fn waiting_text(port: u16) -> String {
 }
 
 pub fn start(cfg: &Config) -> Result<(), String> {
-    let local = screen_size()?;
+    let desk = screen::desktop()?;
     let port = cfg.port;
     log!(
-        "[server] screen {}x{}, client screen is on the {:?}",
-        local.0,
-        local.1,
+        "[server] desktop {}x{} at ({}, {}), client screen is on the {:?}",
+        desk.w,
+        desk.h,
+        desk.x,
+        desk.y,
         cfg.remote_side
     );
 
@@ -206,7 +216,8 @@ pub fn start(cfg: &Config) -> Result<(), String> {
     let clip_in = clipboard::spawn(out_tx.clone());
 
     let core: SharedCore = Arc::new(Mutex::new(Core {
-        local,
+        desk,
+        entry: screen::monitor_at(0.0, 0.0),
         side: cfg.remote_side,
         swap_ctrl_cmd: cfg.swap_ctrl_cmd,
         remote: None,

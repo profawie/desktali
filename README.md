@@ -107,9 +107,9 @@ Run `winmac` with no arguments for tray mode. CLI mode does not read the config 
 ## Limitations
 
 * Copied files are limited to 100 MB in total; they are sent in full when copied, not when pasted.
-* Assumes one monitor per machine (the main monitor).
+* Windows: all monitors are used; the cursor crosses at the outer edge of the whole desktop (e.g. the right edge of the right-most monitor). macOS: only the main display is used.
 * No encryption: only use it on a home/office network you trust.
-* While controlling the other machine from Windows, the Windows cursor is parked in the middle of its screen.
+* While controlling the other machine from Windows, the Windows cursor is parked in the middle of the monitor it left from.
 
 ## Troubleshooting
 
