@@ -37,9 +37,9 @@ cd win-mac-desktop
 
 * **Windows** (PowerShell): `.\build.ps1`
   (if PowerShell blocks the script: `powershell -ExecutionPolicy Bypass -File .\build.ps1`)
-  Output: `target\release\winmac.exe`
+  Output: `winmac.exe` in the repository root (also in `target\release\`)
 * **macOS**: `./build.sh`
-  Output: `target/release/WinMac.app` (menu bar app) and `target/release/winmac` (CLI)
+  Output: `WinMac.app` (menu bar app) and `winmac` (CLI) in the repository root (also in `target/release/`)
 
 On Windows, `build.ps1` uses the Rust **GNU** toolchain (`stable-x86_64-pc-windows-gnu`) and installs it on first run. It does not need Visual Studio, MinGW or `dlltool`.
 
@@ -47,7 +47,7 @@ On Windows, `build.ps1` uses the Rust **GNU** toolchain (`stable-x86_64-pc-windo
 
 ### 1. Windows (server)
 
-1. Double-click `target\release\winmac.exe`. The icon appears in the system tray (it may be hidden under the `^` arrow).
+1. Double-click `winmac.exe` in the repository folder. The icon appears in the system tray (it may be hidden under the `^` arrow).
 2. The default mode on Windows is **Server**, with the other screen on the **Right**. Change it from the menu if needed.
 3. Hover over the icon: the tooltip shows the Windows IP, e.g. `Waiting for client on 192.168.1.10:24800`.
 4. The first time, Windows Firewall will ask; allow it for **Private networks**. If it does not ask (PowerShell as Administrator):
@@ -58,7 +58,7 @@ On Windows, `build.ps1` uses the Rust **GNU** toolchain (`stable-x86_64-pc-windo
 
 ### 2. MacBook (client)
 
-1. Open `target/release/WinMac.app` (you can copy it to `/Applications`). The icon appears in the menu bar.
+1. Open `WinMac.app` in the repository folder (you can copy it to `/Applications`). The icon appears in the menu bar.
 2. The default mode on the Mac is **Client**. Click the icon → **Server address...** → enter the Windows IP (e.g. `192.168.1.10`).
 3. macOS will ask for **Accessibility** permission: open **System Settings → Privacy & Security → Accessibility**, turn on **WinMac**, then click the icon → **Restart**.
 

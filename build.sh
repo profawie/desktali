@@ -37,12 +37,18 @@ PLIST
 # Ad-hoc signature so macOS can remember the Accessibility permission.
 codesign --force --deep -s - "$APP" >/dev/null 2>&1 || true
 
+# Copy the results to the repository root for easy access.
+ROOT="$(pwd)"
+cp -f "$BIN" "$ROOT/winmac"
+rm -rf "$ROOT/WinMac.app"
+cp -R "$APP" "$ROOT/WinMac.app"
+
 echo
-echo "Done:"
-echo "  Menu bar app:  $APP   (open it, or copy it to /Applications)"
-echo "  CLI binary:    $BIN"
+echo "Done (copied to the repository root):"
+echo "  Menu bar app:  $ROOT/WinMac.app   (open it, or copy it to /Applications)"
+echo "  CLI binary:    $ROOT/winmac"
 echo
-echo "Run CLI client:  $BIN client <windows-ip>"
-echo "Run CLI server:  $BIN server --remote-side left"
+echo "Run CLI client:  ./winmac client <windows-ip>"
+echo "Run CLI server:  ./winmac server --remote-side left"
 echo "Remember: allow Accessibility (and Input Monitoring for server mode) in"
 echo "System Settings > Privacy & Security for WinMac (or your Terminal when using the CLI)."
