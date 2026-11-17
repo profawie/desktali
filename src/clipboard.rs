@@ -79,6 +79,9 @@ fn read_local(cb: &mut Clipboard, last_text: &mut Option<String>, changed: bool)
                     }
                     Err(e) => {
                         log!("[clipboard] files not sent: {e}");
+                        if cfg!(target_os = "macos") && e.contains("os error 1)") {
+                            log!("[clipboard] macOS blocked reading these files. Allow rtetherfy in System Settings > Privacy & Security > Full Disk Access (or Files and Folders), then Restart");
+                        }
                         None
                     }
                 };

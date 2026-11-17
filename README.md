@@ -118,5 +118,6 @@ Run `rtetherfy` with no arguments for tray mode. CLI mode does not read the conf
 | Amber icon, `Cannot reach ...` | Check the IP, that both machines are on the same network, and that Windows Firewall allows port 24800. |
 | Red icon on the Mac | Allow Accessibility (and Input Monitoring for server mode) for rtetherfy, then **Restart**. If it stays red after a rebuild, remove rtetherfy from the Accessibility list and add it again. |
 | `Cannot listen on port 24800` | rtetherfy is already running (check the tray), or another program uses that port. |
+| Files copied on the Mac do not paste on Windows | macOS blocks reading files in Desktop, Documents, Downloads and similar folders. Allow rtetherfy in **System Settings → Privacy & Security → Full Disk Access** (or **Files and Folders**), then **Restart**. The log shows `Operation not permitted` when this is the cause. |
 | Cursor does not cross over | Make sure the screen side is correct and both icons are green. |
 | Windows: `link.exe not found` | Use `.\build.ps1` (GNU toolchain), not plain `cargo build`. |
