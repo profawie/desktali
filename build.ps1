@@ -23,9 +23,19 @@ if (-not $installed) {
 cargo "+$toolchain" build --release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$bin = Join-Path $PSScriptRoot "target\release\winmac.exe"
+$built = Join-Path $PSScriptRoot "target\release\winmac.exe"
+$bin = Join-Path $PSScriptRoot "winmac.exe"
+
+# Copy the result to the repository root for easy access.
+try {
+    Copy-Item -Path $built -Destination $bin -Force
+} catch {
+    Write-Error "Cannot copy to $bin. If WinMac is running, quit it from the tray icon and run build.ps1 again."
+    exit 1
+}
+
 Write-Host ""
-Write-Host "Done: $bin"
+Write-Host "Done (copied to the repository root): $bin"
 Write-Host "Tray app:    double-click winmac.exe (or run it without arguments)"
-Write-Host "CLI server:  $bin server --remote-side right"
-Write-Host "CLI client:  $bin client <mac-ip>"
+Write-Host "CLI server:  .\winmac.exe server --remote-side right"
+Write-Host "CLI client:  .\winmac.exe client <mac-ip>"
