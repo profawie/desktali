@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rtetherfy files</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #fff; --text: #1d2330; --muted: #6b7280; --line: #e5e7eb;
+  --accent: #2563eb; --hover: #eef2ff; --err-bg: #fef2f2; --err: #b91c1c; --ok-bg: #ecfdf5; --ok: #047857;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111318; --panel: #1a1d24; --text: #e5e7eb; --muted: #9ca3af; --line: #2a2f3a;
+    --accent: #60a5fa; --hover: #232a3a; --err-bg: #3a1717; --err: #fca5a5; --ok-bg: #0f2e24; --ok: #6ee7b7;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 16px; }
+h1 { font-size: 16px; margin: 0 0 8px; display: flex; gap: 8px; align-items: center; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #f0a020; display: inline-block; }
+.dot.on { background: #2eb84f; }
+.bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+button, input[type=text] { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; }
+button { cursor: pointer; }
+button:hover { background: var(--hover); }
+button:disabled { opacity: .5; cursor: default; }
+#path { flex: 1 1 320px; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+#filter { width: 160px; }
+label { color: var(--muted); display: flex; gap: 4px; align-items: center; }
+main { padding: 12px 16px 40px; }
+.msg { border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; white-space: pre-wrap; }
+.msg.err { background: var(--err-bg); color: var(--err); }
+.msg.ok { background: var(--ok-bg); color: var(--ok); }
+table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--hover); }
+td.name { cursor: pointer; word-break: break-all; }
+td.name .ic { display: inline-block; width: 22px; }
+td.num { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+td.act { white-space: nowrap; text-align: right; }
+td.act a, td.act button { font-size: 12px; padding: 2px 8px; margin-left: 4px; color: var(--accent); text-decoration: none; border: 1px solid var(--line); border-radius: 5px; background: transparent; }
+.hid { opacity: .6; }
+.empty { color: var(--muted); padding: 24px; text-align: center; }
+@media (max-width: 640px) { .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1><span id="dot" class="dot"></span><span id="title">Files</span></h1>
+  <div class="bar">
+    <button id="home" title="Starting points">Start</button>
+    <button id="up" title="Parent folder">Up</button>
+    <input id="path" type="text" spellcheck="false" placeholder="Type a path and press Enter">
+    <button id="reload">Reload</button>
+    <input id="filter" type="text" placeholder="Filter">
+    <label><input id="hidden" type="checkbox"> Hidden files</label>
+  </div>
+</header>
+<main>
+  <div id="msg"></div>
+  <div id="list"><div class="empty">Loading...</div></div>
+</main>
+<script>
+const T = new URLSearchParams(location.search).get("t") || "";
+const $ = id => document.getElementById(id);
+let peer = "other computer", listing = null, busy = false;
+
+const api = (path, params) => {
+  const q = new URLSearchParams(Object.assign({ t: T }, params || {}));
+  return path + "?" + q.toString();
+};
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const size = n => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : n < 1073741824 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
+const date = s => s ? new Date(s * 1000).toLocaleString() : "";
+
+function show(text, kind) {
+  $("msg").innerHTML = text ? '<div class="msg ' + kind + '">' + esc(text) + "</div>" : "";
+}
+
+function current() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  return h.get("p") || "";
+}
+function go(p) {
+  const h = "#p=" + encodeURIComponent(p);
+  if (location.hash === h) load(); else location.hash = h;
+}
+
+async function info() {
+  try {
+    const r = await (await fetch(api("/api/info"))).json();
+    if (r.peer) peer = r.peer;
+    $("dot").className = "dot" + (r.peer ? " on" : "");
+    $("title").textContent = r.peer ? "Files on the " + r.peer : "Files (not connected)";
+    document.title = r.peer ? "rtetherfy: " + r.peer + " files" : "rtetherfy files";
+  } catch (e) {
+    $("title").textContent = "rtetherfy is not running";
+  }
+}
+
+async function load() {
+  const p = current();
+  $("path").value = p;
+  show("", "");
+  $("list").innerHTML = '<div class="empty">Loading' + (p ? " " + esc(p) : "") + "... (the " + esc(peer) + " may ask you to allow access the first time)</div>";
+  await info();
+  try {
+    const r = await (await fetch(api("/api/list", { p }))).json();
+    if (r.error) { listing = null; $("list").innerHTML = ""; show(r.error, "err"); $("up").disabled = !p; return; }
+    listing = r.ok;
+    render();
+  } catch (e) {
+    $("list").innerHTML = "";
+    show("rtetherfy on this computer is not reachable (" + e + "). Open Files again from the rtetherfy menu.", "err");
+  }
+}
+
+function render() {
+  if (!listing) return;
+  $("up").disabled = listing.parent === null || listing.parent === undefined;
+  const f = $("filter").value.toLowerCase(), showHidden = $("hidden").checked;
+  const items = listing.entries.filter(e => (showHidden || !e.hidden) && (!f || e.name.toLowerCase().includes(f)));
+  if (!items.length) {
+    $("list").innerHTML = '<div class="empty">' + (listing.entries.length ? "Nothing matches (hidden files are not shown)." : "This folder is empty.") + "</div>";
+    return;
+  }
+  let h = '<table><thead><tr><th>Name</th><th class="hide-sm">Size</th><th class="hide-sm">Modified</th><th></th></tr></thead><tbody>';
+  items.forEach((e, i) => {
+    const idx = listing.entries.indexOf(e);
+    h += '<tr class="' + (e.hidden ? "hid" : "") + '"><td class="name" data-i="' + idx + '"><span class="ic">' + (e.dir ? "📁" : "📄") + "</span>" + esc(e.name) + "</td>" +
+      '<td class="num hide-sm">' + (e.dir ? "" : size(e.size)) + '</td><td class="num hide-sm">' + date(e.modified) + "</td>" +
+      '<td class="act">' + (e.dir ? "" :
+        '<button data-open="' + idx + '" title="Download to Downloads/rtetherfy and open it">Open</button>' +
+        '<a target="_blank" rel="noopener" href="' + esc(api("/api/file", { p: e.path })) + '" title="View in the browser">View</a>' +
+        '<a href="' + esc(api("/api/file", { p: e.path, dl: "1" })) + '" title="Save with the browser">Download</a>') +
+      "</td></tr>";
+  });
+  $("list").innerHTML = h + "</tbody></table>";
+}
+
+async function openFile(e) {
+  if (busy) return;
+  busy = true;
+  show("Copying " + e.name + " (" + size(e.size) + ") from the " + peer + "...", "ok");
+  try {
+    const r = await (await fetch(api("/api/open", { p: e.path }), { method: "POST" })).json();
+    if (r.error) show(r.error, "err"); else show("Saved to " + r.saved + " and opened.", "ok");
+  } catch (err) {
+    show("Failed: " + err, "err");
+  }
+  busy = false;
+}
+
+$("list").addEventListener("click", ev => {
+  const o = ev.target.closest("[data-open]");
+  if (o) { openFile(listing.entries[+o.dataset.open]); return; }
+  const n = ev.target.closest("td.name");
+  if (!n) return;
+  const e = listing.entries[+n.dataset.i];
+  if (e.dir) go(e.path); else openFile(e);
+});
+$("home").onclick = () => go("");
+$("up").onclick = () => { if (listing && listing.parent != null) go(listing.parent); else go(""); };
+$("reload").onclick = load;
+$("path").addEventListener("keydown", e => { if (e.key === "Enter") go($("path").value.trim()); });
+$("filter").addEventListener("input", render);
+$("hidden").addEventListener("change", render);
+window.addEventListener("hashchange", load);
+load();
+</script>
+</body>
+</html>

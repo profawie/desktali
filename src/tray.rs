@@ -21,6 +21,7 @@ struct Ui {
     mode_client: MenuId,
     sides: Vec<(MenuId, Side)>,
     server_addr: MenuId,
+    files: MenuId,
     open_config: MenuId,
     open_log: MenuId,
     restart: MenuId,
@@ -66,6 +67,7 @@ fn build(cfg: Config) -> Ui {
         format!("Server address: {}...", cfg.server_address.trim())
     };
     let server_addr = MenuItem::new(addr_label, !is_server, None);
+    let files = MenuItem::new(crate::files::menu_label(), true, None);
     let open_config = MenuItem::new("Open config file", true, None);
     let open_log = MenuItem::new("Open log file", true, None);
     let restart = MenuItem::new("Restart", true, None);
@@ -74,6 +76,7 @@ fn build(cfg: Config) -> Ui {
     let menu = Menu::new();
     let _ = menu.append_items(&[
         &status_item,
+        &files,
         &PredefinedMenuItem::separator(),
         &mode,
         &side,
@@ -98,6 +101,7 @@ fn build(cfg: Config) -> Ui {
         mode_client: mode_client.id().clone(),
         sides: side_items.iter().map(|(i, s)| (i.id().clone(), *s)).collect(),
         server_addr: server_addr.id().clone(),
+        files: files.id().clone(),
         open_config: open_config.id().clone(),
         open_log: open_log.id().clone(),
         restart: restart.id().clone(),
@@ -159,6 +163,9 @@ fn handle(ui: &mut Ui, id: &MenuId) {
                 }
             }
         });
+        return;
+    } else if *id == ui.files {
+        thread::spawn(crate::webui::open);
         return;
     } else if *id == ui.open_config {
         let _ = ui.cfg.save();

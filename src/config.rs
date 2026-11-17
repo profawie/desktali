@@ -58,6 +58,11 @@ pub struct Config {
     pub port: u16,
     /// Swap Ctrl <-> Cmd/Win when controlling a machine with a different OS.
     pub swap_ctrl_cmd: bool,
+    /// Let the other computer browse and download this computer's files
+    /// (each peer is still asked for once, see `file_browsing_peers`).
+    pub allow_file_browsing: bool,
+    /// Peers (IP, or server address on the client) allowed to browse files here.
+    pub file_browsing_peers: Vec<String>,
 }
 
 impl Default for Config {
@@ -69,6 +74,8 @@ impl Default for Config {
             remote_side: if cfg!(target_os = "macos") { Side::Left } else { Side::Right },
             port: crate::DEFAULT_PORT,
             swap_ctrl_cmd: true,
+            allow_file_browsing: true,
+            file_browsing_peers: Vec::new(),
         }
     }
 }

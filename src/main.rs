@@ -7,6 +7,7 @@ mod log;
 mod client;
 mod clipboard;
 mod config;
+mod files;
 #[cfg(target_os = "macos")]
 mod mac_capture;
 #[cfg(target_os = "macos")]
@@ -19,6 +20,7 @@ mod screen;
 mod server;
 mod status;
 mod tray;
+mod webui;
 #[cfg(not(target_os = "macos"))]
 mod win_capture;
 

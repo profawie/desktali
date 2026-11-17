@@ -4,6 +4,7 @@ A small Rust app to use **one mouse (and keyboard)** across two computers, Windo
 
 1. **Move the mouse across screens.** Push the cursor past the edge of the Windows screen and it appears on the MacBook. Move it back and it returns to Windows. Clicks, scrolling and the keyboard follow whichever machine is being controlled.
 2. **Shared clipboard.** Copy text, an image, or files/folders on one machine and paste them on the other (both directions). When controlling the Mac from the Windows keyboard, `Ctrl+C` / `Ctrl+V` are automatically turned into `Cmd+C` / `Cmd+V`.
+3. **Browse the other computer's files.** **Files (Mac)...** in the Windows tray menu (or **Files (Windows)...** in the Mac menu bar) opens a file browser in your web browser, showing the other computer's folders. Open, view or download any file.
 
 The app runs as an icon in the **system tray** (Windows, next to the clock) and the **menu bar** (macOS). The icon colour shows the status:
 
@@ -11,7 +12,7 @@ The app runs as an icon in the **system tray** (Windows, next to the clock) and 
 * 🟠 amber: waiting / trying to connect
 * 🔴 red: needs attention (macOS permission, server address not set, port in use)
 
-Click the icon for the menu: full status, **Mode** (Server / Client), **Other screen is on the** (Left / Right / Top / Bottom), **Server address...**, open the config / log file, Restart and Quit. Changing a setting saves the config and restarts the app automatically.
+Click the icon for the menu: full status, **Files (Mac) / Files (Windows)**, **Mode** (Server / Client), **Other screen is on the** (Left / Right / Top / Bottom), **Server address...**, open the config / log file, Restart and Quit. Changing a setting saves the config and restarts the app automatically.
 
 ## How it works
 
@@ -27,6 +28,20 @@ The client connects to the server over TCP port `24800`. The server installs a g
 * **Files and folders** (copied in Explorer / Finder): their contents are sent, saved on the other machine in a temporary folder (`%TEMP%\rtetherfy-clipboard` on Windows, `$TMPDIR/rtetherfy-clipboard` on macOS), and put on the clipboard as files. Paste them in Explorer / Finder (or into an app) as usual. Only the latest batch is kept; older received files are deleted when new ones arrive.
 * Files are sent only up to **100 MB** in total (and 2000 files). Larger copies are skipped and logged.
 * While a large image or file batch is being sent, the mouse on the other machine may pause briefly.
+
+### Browsing the other computer's files
+
+Click **Files (Mac)...** in the Windows tray menu, or **Files (Windows)...** in the Mac menu bar. A page opens in your default browser:
+
+* It starts with **Home**, **Desktop**, **Documents**, **Downloads** and the drives (Windows) or `/` and volumes (Mac). Click a folder to open it, **Up** to go back, or type a path and press Enter. **Hidden files** shows dotfiles / hidden files.
+* Click a file name (or **Open**) to copy it to `Downloads/rtetherfy` on this computer and open it with its default app. **View** shows it in the browser (images, PDF, text, video), **Download** saves it with the browser.
+* Errors are shown at the top of the page, for example when a folder is not allowed.
+
+**The first time**, the computer being browsed asks: *"... wants to browse and download files on this computer. Allow it?"*. Move the mouse over to that screen and click **Allow** (Yes on Windows). The answer is remembered for that peer in `file_browsing_peers` in its config file; remove the entry there to be asked again. To turn the feature off completely on a computer, set `"allow_file_browsing": false` in its config file.
+
+**macOS privacy:** macOS protects Desktop, Documents, Downloads, iCloud Drive, external drives and some Library folders. The first time a folder is opened, the Mac may show its own prompt ("rtetherfy would like to access files in your Documents folder"): click **Allow** on the Mac. If access was denied before, the page shows *"macOS blocked access to ..."*. To allow everything: **System Settings → Privacy & Security → Full Disk Access** → turn on **rtetherfy** (or under **Files and Folders**), then **Restart** rtetherfy on the Mac.
+
+How it works: the page is served by rtetherfy itself on `127.0.0.1` only (a random port, with a random secret in the URL), so other devices on the network cannot use it. Requests go to the other computer over the existing rtetherfy connection; files are sent in 512 KB pieces, so the mouse keeps working during large downloads. Browsing is read-only: nothing can be changed or deleted on the other computer.
 
 ## Build
 
@@ -86,9 +101,14 @@ Config file (JSON), which you can open from the **Open config file** menu item:
   "server_address": "",
   "remote_side": "right",
   "port": 24800,
-  "swap_ctrl_cmd": true
+  "swap_ctrl_cmd": true,
+  "allow_file_browsing": true,
+  "file_browsing_peers": []
 }
 ```
+
+* `allow_file_browsing`: let the other computer browse this computer's files (it is still asked for once per peer).
+* `file_browsing_peers`: peers that were allowed to browse files here (the server stores the client's IP; the client stores the server address).
 
 After editing the file by hand, click **Restart** in the menu. The log is `rtetherfy.log` in the same folder (menu **Open log file**).
 
@@ -108,7 +128,7 @@ Run `rtetherfy` with no arguments for tray mode. CLI mode does not read the conf
 
 * Copied files are limited to 100 MB in total; they are sent in full when copied, not when pasted.
 * Windows: all monitors are used; the cursor crosses at the outer edge of the whole desktop (e.g. the right edge of the right-most monitor). macOS: only the main display is used.
-* No encryption: only use it on a home/office network you trust.
+* No encryption (also for browsed files): only use it on a home/office network you trust.
 * While controlling the other machine from Windows, the Windows cursor is parked in the middle of the monitor it left from.
 
 ## Troubleshooting
@@ -119,5 +139,8 @@ Run `rtetherfy` with no arguments for tray mode. CLI mode does not read the conf
 | Red icon on the Mac | Allow Accessibility (and Input Monitoring for server mode) for rtetherfy, then **Restart**. If it stays red after a rebuild, remove rtetherfy from the Accessibility list and add it again. |
 | `Cannot listen on port 24800` | rtetherfy is already running (check the tray), or another program uses that port. |
 | Files copied on the Mac do not paste on Windows | macOS blocks reading files in Desktop, Documents, Downloads and similar folders. Allow rtetherfy in **System Settings → Privacy & Security → Full Disk Access** (or **Files and Folders**), then **Restart**. The log shows `Operation not permitted` when this is the cause. |
+| Files page: `Not connected to the other computer` | Both icons must be green. Reload the page after they are. |
+| Files page: `No answer from the Mac/Windows` | Look at the other screen: it may be asking to allow access (rtetherfy or macOS prompt). Also make sure both computers run this rtetherfy version. |
+| Files page: `macOS blocked access to ...` | Allow rtetherfy in **System Settings → Privacy & Security → Full Disk Access** (or **Files and Folders**) on the Mac, then **Restart** rtetherfy there. |
 | Cursor does not cross over | Make sure the screen side is correct and both icons are green. |
 | Windows: `link.exe not found` | Use `.\build.ps1` (GNU toolchain), not plain `cargo build`. |
