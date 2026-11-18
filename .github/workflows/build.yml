@@ -11,9 +11,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            bin: rtetherfy.exe
+            bin: desktali.exe
           - os: macos-latest
-            bin: rtetherfy
+            bin: desktali
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +32,7 @@ jobs:
         run: ./build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: rtetherfy-${{ matrix.os }}
+          name: desktali-${{ matrix.os }}
           path: |
             target/release/${{ matrix.bin }}
-            target/release/rtetherfy.app
+            target/release/desktali.app

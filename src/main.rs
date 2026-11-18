@@ -28,22 +28,22 @@ use config::{Config, Mode, Side};
 
 pub const DEFAULT_PORT: u16 = 24800;
 
-const USAGE: &str = "rtetherfy - share one mouse/keyboard and the clipboard between Windows and macOS
+const USAGE: &str = "desktali - share one mouse/keyboard and the clipboard between Windows and macOS
 
 Usage:
-  rtetherfy
+  desktali
       Start as a system tray / menu bar app using the saved configuration.
 
-  rtetherfy server [--remote-side left|right|top|bottom] [--port 24800] [--no-swap-ctrl-cmd]
+  desktali server [--remote-side left|right|top|bottom] [--port 24800] [--no-swap-ctrl-cmd]
       Run in the terminal on the machine that has the physical mouse.
       --remote-side       where the other machine's screen is (default: right)
       --port              TCP port to listen on (default: 24800)
       --no-swap-ctrl-cmd  do not swap Ctrl <-> Cmd/Win between different OSes
 
-  rtetherfy client <server-ip>[:port]
-      Run in the terminal on the controlled machine, e.g. rtetherfy client 192.168.1.10
+  desktali client <server-ip>[:port]
+      Run in the terminal on the controlled machine, e.g. desktali client 192.168.1.10
 
-  rtetherfy --config-path
+  desktali --config-path
       Print the location of the configuration file.
 ";
 
@@ -117,7 +117,7 @@ fn main() {
         }
         "--config-path" => println!("{}", config::path().display()),
         "-h" | "--help" | "help" => usage_exit(""),
-        "-V" | "--version" => println!("rtetherfy {}", env!("CARGO_PKG_VERSION")),
+        "-V" | "--version" => println!("desktali {}", env!("CARGO_PKG_VERSION")),
         other => usage_exit(&format!("unknown command: {other}")),
     }
 }

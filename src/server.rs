@@ -202,7 +202,7 @@ pub fn start(cfg: &Config) -> Result<(), String> {
                 thread::sleep(std::time::Duration::from_millis(300));
             }
             Err(e) => {
-                let msg = format!("Cannot listen on port {port}: {e} (is rtetherfy already running?)");
+                let msg = format!("Cannot listen on port {port}: {e} (is desktali already running?)");
                 status::set(State::Error, msg.clone());
                 return Err(msg);
             }

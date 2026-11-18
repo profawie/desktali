@@ -1,6 +1,6 @@
 //! Configuration stored as JSON:
-//!  * Windows: %APPDATA%\rtetherfy\config.json
-//!  * macOS:   ~/Library/Application Support/rtetherfy/config.json
+//!  * Windows: %APPDATA%\desktali\config.json
+//!  * macOS:   ~/Library/Application Support/desktali/config.json
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -113,7 +113,7 @@ impl Config {
 }
 
 pub fn dir() -> PathBuf {
-    base_dir().join("rtetherfy")
+    base_dir().join("desktali")
 }
 
 fn base_dir() -> PathBuf {

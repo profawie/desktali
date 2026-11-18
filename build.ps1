@@ -1,4 +1,4 @@
-# Build rtetherfy for Windows (release) with the GNU Rust toolchain.
+# Build desktali for Windows (release) with the GNU Rust toolchain.
 #
 # The GNU toolchain (x86_64-pc-windows-gnu) ships its own MinGW linker, so Visual
 # Studio / "Build Tools for Visual Studio" (link.exe) is not needed.
@@ -23,19 +23,19 @@ if (-not $installed) {
 cargo "+$toolchain" build --release
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$built = Join-Path $PSScriptRoot "target\release\rtetherfy.exe"
-$bin = Join-Path $PSScriptRoot "rtetherfy.exe"
+$built = Join-Path $PSScriptRoot "target\release\desktali.exe"
+$bin = Join-Path $PSScriptRoot "desktali.exe"
 
 # Copy the result to the repository root for easy access.
 try {
     Copy-Item -Path $built -Destination $bin -Force
 } catch {
-    Write-Error "Cannot copy to $bin. If rtetherfy is running, quit it from the tray icon and run build.ps1 again."
+    Write-Error "Cannot copy to $bin. If desktali is running, quit it from the tray icon and run build.ps1 again."
     exit 1
 }
 
 Write-Host ""
 Write-Host "Done (copied to the repository root): $bin"
-Write-Host "Tray app:    double-click rtetherfy.exe (or run it without arguments)"
-Write-Host "CLI server:  .\rtetherfy.exe server --remote-side right"
-Write-Host "CLI client:  .\rtetherfy.exe client <mac-ip>"
+Write-Host "Tray app:    double-click desktali.exe (or run it without arguments)"
+Write-Host "CLI server:  .\desktali.exe server --remote-side right"
+Write-Host "CLI client:  .\desktali.exe client <mac-ip>"

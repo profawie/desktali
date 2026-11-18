@@ -80,7 +80,7 @@ fn read_local(cb: &mut Clipboard, last_text: &mut Option<String>, changed: bool)
                     Err(e) => {
                         log!("[clipboard] files not sent: {e}");
                         if cfg!(target_os = "macos") && e.contains("os error 1)") {
-                            log!("[clipboard] macOS blocked reading these files. Allow rtetherfy in System Settings > Privacy & Security > Full Disk Access (or Files and Folders), then Restart");
+                            log!("[clipboard] macOS blocked reading these files. Allow desktali in System Settings > Privacy & Security > Full Disk Access (or Files and Folders), then Restart");
                         }
                         None
                     }
@@ -243,7 +243,7 @@ fn collect_files(paths: &[PathBuf]) -> Result<(Vec<FileEntry>, u64), String> {
 
 /// Folder where received files are stored. Older batches are removed.
 pub fn received_dir() -> PathBuf {
-    std::env::temp_dir().join("rtetherfy-clipboard")
+    std::env::temp_dir().join("desktali-clipboard")
 }
 
 /// Write received entries to a new folder; return the top-level items.

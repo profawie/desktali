@@ -1,5 +1,5 @@
 [package]
-name = "rtetherfy"
+name = "desktali"
 version = "0.2.0"
 edition = "2021"
 description = "Share one mouse/keyboard and the clipboard between Windows and macOS over LAN"

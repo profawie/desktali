@@ -38,7 +38,7 @@ pub fn release(pos: (f64, f64)) {
 
 pub fn start(core: SharedCore) -> Result<(), String> {
     if !accessibility_trusted(true) {
-        let msg = "Allow Accessibility and Input Monitoring for rtetherfy (System Settings > Privacy & Security), then restart";
+        let msg = "Allow Accessibility and Input Monitoring for desktali (System Settings > Privacy & Security), then restart";
         crate::status::set(crate::status::State::Error, msg);
         return Err(msg.into());
     }
@@ -66,7 +66,7 @@ pub fn start(core: SharedCore) -> Result<(), String> {
         move |_proxy, ty, ev| on_event(&core, ty, ev),
     )
     .map_err(|_| {
-        let msg = "Cannot capture input: allow Input Monitoring and Accessibility for rtetherfy, then restart";
+        let msg = "Cannot capture input: allow Input Monitoring and Accessibility for desktali, then restart";
         crate::status::set(crate::status::State::Error, msg);
         msg.to_string()
     })?;
