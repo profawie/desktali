@@ -77,10 +77,10 @@ pub fn menu_label() -> &'static str {
 /// Send a request to the other computer and wait for its answer.
 pub fn request(op: FsOp, timeout: Duration) -> Result<FsData, String> {
     let Some(link) = LINK.get() else {
-        return Err("rtetherfy is not running as server or client.".into());
+        return Err("desktali is not running as server or client.".into());
     };
     let Some(os) = peer_os() else {
-        return Err("Not connected to the other computer. Check the rtetherfy icon on both computers.".into());
+        return Err("Not connected to the other computer. Check the desktali icon on both computers.".into());
     };
     let other = os_label(&os).to_string();
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
@@ -100,7 +100,7 @@ pub fn request(op: FsOp, timeout: Duration) -> Result<FsData, String> {
         Ok(r) => r,
         Err(_) => Err(format!(
             "No answer from the {other}. Check its screen: it may be asking you to allow access \
-             (rtetherfy or macOS permission prompt). If the {other} runs an older rtetherfy, update it."
+             (desktali or macOS permission prompt). If the {other} runs an older desktali, update it."
         )),
     }
 }
@@ -181,7 +181,7 @@ fn approve(peer_key: &str) -> Result<(), String> {
     };
     log!("[files] asking whether {peer_key} may browse files");
     let yes = confirm(&format!(
-        "{who} wants to browse and download files on this computer through rtetherfy.\n\n\
+        "{who} wants to browse and download files on this computer through desktali.\n\n\
          Allow it? The answer is remembered (remove it from \"file_browsing_peers\" in the config file to undo)."
     ));
     let answer = if yes { Answer::Allowed } else { Answer::Denied(Instant::now()) };
@@ -213,7 +213,7 @@ fn confirm(text: &str) -> bool {
             MessageBoxW, IDYES, MB_DEFBUTTON2, MB_ICONWARNING, MB_SETFOREGROUND, MB_TOPMOST, MB_YESNO,
         };
         let w = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
-        let (t, c) = (w(text), w("rtetherfy"));
+        let (t, c) = (w(text), w("desktali"));
         let r = unsafe {
             MessageBoxW(
                 std::ptr::null_mut(),
@@ -228,7 +228,7 @@ fn confirm(text: &str) -> bool {
     {
         let q = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
         let script = format!(
-            "display dialog \"{}\" with title \"rtetherfy\" buttons {{\"Deny\", \"Allow\"}} \
+            "display dialog \"{}\" with title \"desktali\" buttons {{\"Deny\", \"Allow\"}} \
              default button \"Deny\" with icon caution giving up after 110",
             q(text)
         );
@@ -262,14 +262,14 @@ fn io_err(e: std::io::Error, path: &str) -> String {
         std::io::ErrorKind::PermissionDenied => {
             if cfg!(target_os = "macos") {
                 format!(
-                    "macOS blocked access to {path} ({e}). On the Mac, allow rtetherfy in System Settings > \
+                    "macOS blocked access to {path} ({e}). On the Mac, allow desktali in System Settings > \
                      Privacy & Security > Full Disk Access (or Files and Folders), then choose Restart \
-                     in the rtetherfy menu on the Mac."
+                     in the desktali menu on the Mac."
                 )
             } else if cfg!(windows) {
                 format!(
                     "Windows denied access to {path} ({e}). The folder may be protected or belong to \
-                     another user; rtetherfy can only open what your Windows account can open."
+                     another user; desktali can only open what your Windows account can open."
                 )
             } else {
                 format!("Permission denied: {path} ({e})")

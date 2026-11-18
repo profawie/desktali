@@ -71,7 +71,7 @@ fn build(cfg: Config) -> Ui {
     let open_config = MenuItem::new("Open config file", true, None);
     let open_log = MenuItem::new("Open log file", true, None);
     let restart = MenuItem::new("Restart", true, None);
-    let quit = MenuItem::new("Quit rtetherfy", true, None);
+    let quit = MenuItem::new("Quit desktali", true, None);
 
     let menu = Menu::new();
     let _ = menu.append_items(&[
@@ -91,7 +91,7 @@ fn build(cfg: Config) -> Ui {
 
     let tray = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_tooltip("rtetherfy")
+        .with_tooltip("desktali")
         .with_icon(icon(State::Waiting))
         .build()
         .expect("create tray icon");
@@ -136,7 +136,7 @@ fn tick() {
             };
             let text = if st.1.is_empty() { "Starting...".to_string() } else { st.1.clone() };
             ui.status_item.set_text(&text);
-            let _ = ui.tray.set_tooltip(Some(format!("rtetherfy ({mode}): {text}")));
+            let _ = ui.tray.set_tooltip(Some(format!("desktali ({mode}): {text}")));
             let _ = ui.tray.set_icon(Some(icon(st.0)));
             ui.shown = Some(st);
         }
@@ -250,7 +250,7 @@ fn ask_text(prompt: &str, default: &str) -> Option<String> {
         let q = |s: &str| s.replace('\'', "''");
         let script = format!(
             "Add-Type -AssemblyName Microsoft.VisualBasic; \
-             [Microsoft.VisualBasic.Interaction]::InputBox('{}', 'rtetherfy', '{}')",
+             [Microsoft.VisualBasic.Interaction]::InputBox('{}', 'desktali', '{}')",
             q(prompt),
             q(default)
         );
@@ -263,7 +263,7 @@ fn ask_text(prompt: &str, default: &str) -> Option<String> {
     let out = {
         let q = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
         let script = format!(
-            "text returned of (display dialog \"{}\" default answer \"{}\" with title \"rtetherfy\")",
+            "text returned of (display dialog \"{}\" default answer \"{}\" with title \"desktali\")",
             q(prompt),
             q(default)
         );
@@ -355,6 +355,6 @@ fn platform_loop(cfg: Config) -> ! {
 
 #[cfg(not(any(windows, target_os = "macos")))]
 fn platform_loop(_cfg: Config) -> ! {
-    log!("[tray] tray mode is only supported on Windows and macOS; use `rtetherfy server` or `rtetherfy client`");
+    log!("[tray] tray mode is only supported on Windows and macOS; use `desktali server` or `desktali client`");
     std::process::exit(1)
 }

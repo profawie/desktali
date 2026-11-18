@@ -3,7 +3,7 @@
 //! A tiny HTTP server listens on 127.0.0.1 only (random port) and every request must
 //! carry a random token that is only put in the URL opened in this computer's browser.
 //! The page asks this app, which forwards the request to the other computer over the
-//! existing rtetherfy connection.
+//! existing desktali connection.
 
 use crate::files::{self, os_label, MAX_CHUNK};
 use crate::protocol::{FsData, FsOp};
@@ -139,7 +139,7 @@ fn handle(mut s: TcpStream, port: u16, token: &str) -> std::io::Result<()> {
             &mut s,
             403,
             "text/plain",
-            b"Forbidden: open this page from the rtetherfy menu (Files).",
+            b"Forbidden: open this page from the desktali menu (Files).",
         );
     }
 
@@ -294,7 +294,7 @@ fn send_file(s: &mut TcpStream, path: &str, download: bool) -> std::io::Result<(
         Ok(v) => v,
         Err(e) => {
             let page = format!(
-                "<!doctype html><meta charset=utf-8><title>rtetherfy</title>\
+                "<!doctype html><meta charset=utf-8><title>desktali</title>\
                  <body style=\"font-family:system-ui;padding:24px\"><h3>Cannot open the file</h3><p>{}</p>",
                 html_escape(&e)
             );
@@ -334,7 +334,7 @@ fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
-/// Download a remote file to Downloads/rtetherfy and open it with its default app.
+/// Download a remote file to Downloads/desktali and open it with its default app.
 fn save_and_open(path: &str) -> Result<String, String> {
     #[cfg(windows)]
     let home = std::env::var_os("USERPROFILE");
@@ -343,7 +343,7 @@ fn save_and_open(path: &str) -> Result<String, String> {
     let dir = home
         .map(|h| PathBuf::from(h).join("Downloads"))
         .unwrap_or_else(std::env::temp_dir)
-        .join("rtetherfy");
+        .join("desktali");
     std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create {}: {e}", dir.display()))?;
 
     let name = sanitize(&file_name(path));

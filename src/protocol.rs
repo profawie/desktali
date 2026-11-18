@@ -19,7 +19,7 @@ pub enum Msg {
     /// Both ways: copied files/folders. Paths are relative and '/'-separated;
     /// entries without '/' are the top-level items that were copied.
     Files(Vec<FileEntry>),
-    /// Server -> client right after accepting: proves the other side is a rtetherfy server.
+    /// Server -> client right after accepting: proves the other side is a desktali server.
     Welcome { os: String },
     /// Both ways every 2 s, so a dead connection is noticed within a few seconds.
     Ping,

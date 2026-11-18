@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 static FILE: OnceLock<Mutex<File>> = OnceLock::new();
 
 pub fn path() -> std::path::PathBuf {
-    crate::config::dir().join("rtetherfy.log")
+    crate::config::dir().join("desktali.log")
 }
 
 /// Start logging to the log file (truncated when it gets larger than 1 MB).
